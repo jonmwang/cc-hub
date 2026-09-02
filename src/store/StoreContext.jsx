@@ -1,7 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { CARD_BY_ID } from '../data/cards'
 import { CURRENCIES } from '../data/currencies'
-import { getAdapter, consumeSharedStateFromUrl } from '../lib/storage'
+import {
+  buildSyncUrl,
+  consumeSharedStateFromUrl,
+  consumeSyncLink,
+  getAdapter,
+  getSyncCreds,
+  localAdapter,
+  setAdapter,
+  setSyncCreds,
+} from '../lib/storage'
+import { isConfigured } from '../lib/sync/firebaseConfig'
+import { mergeStates } from '../lib/sync/merge'
+import { generateKeyString, randomId } from '../lib/sync/crypto'
 import { currentQuarterKey } from '../lib/periods'
 
 const StoreContext = createContext(null)
@@ -96,8 +108,39 @@ function migrate(saved) {
 export function StoreProvider({ children }) {
   const [state, setState] = useState(null)
   const [sharedNotice, setSharedNotice] = useState(false)
-  const adapter = useMemo(() => getAdapter(), [])
+  const [syncCreds, setCreds] = useState(() => consumeSyncLink() ?? getSyncCreds())
+  const [adapter, setLocalAdapter] = useState(() => getAdapter())
   const hydrated = useRef(false)
+  // The adapter merges remote changes against whatever is on screen right now,
+  // so a snapshot arriving mid-edit can't wipe out an unsaved local change.
+  const stateRef = useRef(null)
+  stateRef.current = state
+
+  // Swap in the encrypted cloud adapter when the household is set up. Nothing
+  // outside this effect knows which one is in play.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!syncCreds || !isConfigured()) {
+        const local = localAdapter()
+        setAdapter(local)
+        if (!cancelled) setLocalAdapter(local)
+        return
+      }
+      const { FirestoreAdapter } = await import('../lib/sync/firebaseAdapter')
+      if (cancelled) return
+      const remote = new FirestoreAdapter({
+        ...syncCreds,
+        onLocalMerge: (incoming) => mergeStates(stateRef.current, incoming),
+      })
+      setAdapter(remote)
+      setLocalAdapter(remote)
+      hydrated.current = false
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [syncCreds])
 
   useEffect(() => {
     let cancelled = false
@@ -108,8 +151,16 @@ export function StoreProvider({ children }) {
       if (shared) {
         setState(migrate(shared))
         setSharedNotice(true)
-      } else {
+      } else if (stored) {
         setState(migrate(stored))
+      } else if (stateRef.current) {
+        // First device into an empty household: keep what's already on screen
+        // and let the save effect seed the remote copy with it.
+        setState(stateRef.current)
+      } else {
+        // Nothing in the cloud yet and nothing on screen — fall back to whatever
+        // this browser had locally so switching on sync never looks like a wipe.
+        setState(migrate(await localAdapter().load()))
       }
       hydrated.current = true
     })()
@@ -122,7 +173,10 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!state || !hydrated.current) return
     adapter.save(state)
-  }, [state, adapter])
+    // Always keep a local copy too. If the household link is ever lost, the
+    // encrypted remote copy is unrecoverable, but this browser still has it.
+    if (syncCreds) localAdapter().save(state)
+  }, [state, adapter, syncCreds])
 
   useEffect(() => adapter.subscribe((next) => setState(migrate(next))), [adapter])
 
@@ -252,6 +306,20 @@ export function StoreProvider({ children }) {
 
       replaceState: (next) => setState(migrate(next)),
 
+      // Creates a household: a random id for the Firestore document and a
+      // random AES key that never leaves the browser. Returns the invite link.
+      enableSync: async () => {
+        const creds = { householdId: randomId(16), keyString: await generateKeyString() }
+        setSyncCreds(creds)
+        setCreds(creds)
+        return buildSyncUrl(creds)
+      },
+
+      disableSync: () => {
+        setSyncCreds(null)
+        setCreds(null)
+      },
+
       resetAll: () => setState(defaultState()),
 
       clearWallet: () =>
@@ -261,8 +329,17 @@ export function StoreProvider({ children }) {
   )
 
   const value = useMemo(
-    () => ({ state, actions, adapter, sharedNotice, dismissSharedNotice: () => setSharedNotice(false) }),
-    [state, actions, adapter, sharedNotice],
+    () => ({
+      state,
+      actions,
+      adapter,
+      syncCreds,
+      syncConfigured: isConfigured(),
+      syncUrl: syncCreds ? buildSyncUrl(syncCreds) : null,
+      sharedNotice,
+      dismissSharedNotice: () => setSharedNotice(false),
+    }),
+    [state, actions, adapter, syncCreds, sharedNotice],
   )
 
   if (!state) return null

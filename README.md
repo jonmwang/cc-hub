@@ -112,8 +112,27 @@ each hold their own copy.** Two ways to bridge that today, both on the
   an already-open tab, not just on a fresh load.
 - **Backup file** — download a JSON file, restore it on another machine.
 
-When you want genuine live sync, see `REMOTE_ADAPTER_NOTES.md`. The app was structured for
-it: one file changes.
+### Live sync (end-to-end encrypted)
+
+`SYNC_SETUP.md` has the full walkthrough. In short: create a free Firebase project, paste its
+config into `src/lib/sync/firebaseConfig.js`, and the Settings page grows a **Live sync** panel.
+
+State is encrypted in the browser with AES-256-GCM before anything is sent, so Firestore stores
+only `{ iv, data }`. The key lives in the **URL fragment** of the household link — browsers never
+transmit fragments, so the key reaches your partner's device without ever reaching Google.
+Nobody but the two of you can read the data, including Google and including whoever wrote this.
+
+The trade is unavoidable and worth stating: lose every copy of the link and the data cannot be
+recovered by anyone. A local copy is still kept in each browser, and JSON backups remain.
+
+Merging deserves a note. Naive last-write-wins would silently drop a credit somebody just
+ticked — the worst failure here, because nothing would look wrong. The usage log is append-only
+and each entry is identified by (wallet key, credit id, period key), so it is merged as a union
+instead; simultaneous ticks on different credits both survive. Everything else is
+last-write-wins, where a conflict costs you a preference rather than a record.
+
+Until Firebase is configured the app is local-only and behaves exactly as before —
+`getAdapter()` simply never swaps in the cloud adapter.
 
 ## Cache busting
 

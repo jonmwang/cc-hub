@@ -6,9 +6,10 @@ import { BUILD_ID, reloadToLatest } from '../lib/version'
 import { Panel, cardTitle, money } from '../components/ui'
 
 export default function Settings() {
-  const { state, actions } = useStore()
+  const { state, actions, syncCreds, syncConfigured, syncUrl, adapter } = useStore()
   const [shareUrl, setShareUrl] = useState('')
   const [copied, setCopied] = useState(false)
+  const [syncCopied, setSyncCopied] = useState(false)
   const [addCardId, setAddCardId] = useState(CARDS[0].id)
   const [addOwner, setAddOwner] = useState('me')
   const fileRef = useRef(null)
@@ -198,6 +199,84 @@ export default function Settings() {
             )
           })}
         </div>
+      </Panel>
+
+      <div className="section-head">
+        <div>
+          <h2>Live sync</h2>
+          <div className="sub">Real-time between your devices, encrypted so the server can't read it.</div>
+        </div>
+      </div>
+      <Panel>
+        {!syncConfigured ? (
+          <>
+            <p className="hint" style={{ marginTop: 0 }}>
+              <strong>Not set up yet.</strong> Live sync needs a free Firebase project — one you own,
+              which takes about three minutes to create. Paste its config into{' '}
+              <code>src/lib/sync/firebaseConfig.js</code> and this panel turns on.{' '}
+              <code>SYNC_SETUP.md</code> in the project root has the steps.
+            </p>
+            <p className="hint">
+              Until then the app stays local-only, exactly as it works today.
+            </p>
+          </>
+        ) : !syncCreds ? (
+          <>
+            <button
+              className="btn btn-primary btn-block"
+              onClick={async () => setShareUrl(await actions.enableSync())}
+            >
+              Turn on live sync
+            </button>
+            <p className="hint">
+              Creates a household and a fresh encryption key. Everything is encrypted in this browser
+              before it is sent — the database only ever holds scrambled bytes. Open the link it gives
+              you on any other device to join.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="hint" style={{ marginTop: 0 }}>
+              <strong>Live sync is on.</strong> Status: {adapter.describe().detail}. Changes on either
+              device appear on the other within a second.
+            </p>
+            <div className="share-box">
+              <input type="text" readOnly value={syncUrl} onFocus={(e) => e.target.select()} />
+              <button
+                className="btn"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(syncUrl)
+                    setSyncCopied(true)
+                    setTimeout(() => setSyncCopied(false), 2000)
+                  } catch {
+                    setSyncCopied(false)
+                  }
+                }}
+              >
+                {syncCopied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <p className="hint">
+              <strong>This link is the key.</strong> Anyone who has it can read and edit your data, and
+              nobody without it can — including Google, and including me. Send it to your partner once,
+              privately. Losing every copy means the encrypted data can never be recovered, so keep a
+              JSON backup above.
+            </p>
+            <button
+              className="btn btn-block btn-danger"
+              style={{ marginTop: 4 }}
+              onClick={() =>
+                confirmThen(
+                  'Stop syncing this device? Your data stays in this browser, and the household keeps existing for any other device still joined.',
+                  actions.disableSync,
+                )
+              }
+            >
+              Stop syncing on this device
+            </button>
+          </>
+        )}
       </Panel>
 
       <div className="section-head">

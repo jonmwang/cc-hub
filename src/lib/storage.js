@@ -66,11 +66,74 @@ class LocalStorageAdapter {
   }
 }
 
+// ─────────────────────────── Sync credentials ────────────────────────────────
+// A household id plus an encryption key. The id identifies the Firestore
+// document; the key never leaves the browser. Both arrive via the invite link's
+// fragment and are then kept locally so the app reconnects on its own.
+
+const SYNC_KEY = 'cc-hub/sync'
+
+export function getSyncCreds() {
+  try {
+    const raw = window.localStorage.getItem(SYNC_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export function setSyncCreds(creds) {
+  try {
+    if (creds) window.localStorage.setItem(SYNC_KEY, JSON.stringify(creds))
+    else window.localStorage.removeItem(SYNC_KEY)
+  } catch {
+    /* private browsing */
+  }
+}
+
+// Reads `#/...?sync=<householdId>.<key>` and strips it from the address bar so
+// the key isn't left sitting in the URL after it's been stored.
+export function consumeSyncLink() {
+  const hash = window.location.hash
+  const qIndex = hash.indexOf('?')
+  if (qIndex === -1) return null
+
+  const params = new URLSearchParams(hash.slice(qIndex + 1))
+  const payload = params.get('sync')
+  if (!payload) return null
+
+  const [householdId, keyString] = payload.split('.')
+  params.delete('sync')
+  const rest = params.toString()
+  const path = hash.slice(0, qIndex)
+  window.history.replaceState(null, '', `${window.location.pathname}${path}${rest ? `?${rest}` : ''}`)
+
+  if (!householdId || !keyString) return null
+  const creds = { householdId, keyString }
+  setSyncCreds(creds)
+  return creds
+}
+
+export function buildSyncUrl({ householdId, keyString }) {
+  const base = `${window.location.origin}${window.location.pathname}`
+  // Fragment, not query string — fragments are never sent to a server, which is
+  // what keeps the encryption key off Google's wire entirely.
+  return `${base}#/?sync=${householdId}.${keyString}`
+}
+
 let adapter = null
 
 export function getAdapter() {
   if (!adapter) adapter = new LocalStorageAdapter()
   return adapter
+}
+
+export function setAdapter(next) {
+  adapter = next
+}
+
+export function localAdapter() {
+  return new LocalStorageAdapter()
 }
 
 // ─────────────────────────── Share links & backups ───────────────────────────
