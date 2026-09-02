@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store/StoreContext'
 import { CARDS, CARD_BY_ID } from '../data/cards'
 import { buildShareUrl, downloadBackup } from '../lib/storage'
+import { BUILD_ID, reloadToLatest } from '../lib/version'
 import { Panel, cardTitle, money } from '../components/ui'
 
 export default function Settings() {
@@ -197,6 +198,22 @@ export default function Settings() {
             )
           })}
         </div>
+      </Panel>
+
+      <div className="section-head">
+        <div>
+          <h2>This build</h2>
+        </div>
+      </div>
+      <Panel>
+        <p className="hint" style={{ marginTop: 0 }}>
+          Running <code>{BUILD_ID}</code>. The app checks for a newer deploy on load and whenever you
+          come back to the tab, and offers a reload when one lands — so neither of you should ever need
+          to clear a cache or hard-refresh.{' '}
+          <button className="btn btn-sm" style={{ marginLeft: 4 }} onClick={reloadToLatest}>
+            Force reload
+          </button>
+        </p>
       </Panel>
 
       <div className="section-head">

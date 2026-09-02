@@ -115,6 +115,20 @@ each hold their own copy.** Two ways to bridge that today, both on the
 When you want genuine live sync, see `REMOTE_ADAPTER_NOTES.md`. The app was structured for
 it: one file changes.
 
+## Cache busting
+
+GitHub Pages serves `index.html` with `cache-control: max-age=600`. Asset filenames are
+content-hashed, so a stale HTML copy loads a perfectly valid but out-of-date app — no error,
+nothing visibly wrong, just old. The only manual cure is a hard refresh, which is not something
+you can ask a non-technical person to know about.
+
+So the app checks for itself. Each build stamps a `buildId` into the bundle and writes the same
+id to `dist/version.json`. The running app fetches that file with `cache: 'no-store'` on load,
+whenever the tab regains focus, and every 15 minutes; if the ids differ, a banner offers a
+reload (which appends a `?v=` param so the reload can't be served from cache either).
+
+The current build id is shown on the Settings page, next to a Force reload button.
+
 ## Keeping the card data accurate
 
 `src/data/cards.js` is the single source of truth for multipliers, annual fees, and

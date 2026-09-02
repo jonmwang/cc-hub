@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
 import { useStore } from './store/StoreContext'
+import { reloadToLatest, useUpdateAvailable } from './lib/version'
 import Home from './pages/Home'
 import MyCards from './pages/MyCards'
 import QuickPicks from './pages/QuickPicks'
@@ -21,9 +22,18 @@ const NAV = [
 export default function App() {
   const { adapter, sharedNotice, dismissSharedNotice } = useStore()
   const storage = adapter.describe()
+  const updateAvailable = useUpdateAvailable()
 
   return (
     <div className="app">
+      {updateAvailable && (
+        <div className="update-bar" role="status">
+          <span>A newer version of CC Hub is available.</span>
+          <button className="btn btn-sm" onClick={reloadToLatest}>
+            Reload
+          </button>
+        </div>
+      )}
       <header className="topbar">
         <NavLink to="/" className="brand">
           <span className="brand-mark">CC</span>
