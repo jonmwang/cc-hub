@@ -30,7 +30,15 @@ export function effectiveMultiplier(state, walletEntry, categoryId) {
     }
   }
 
-  return { multiplier: multiplier + (card.anniversaryBonus ?? 0), isRotating }
+  return { multiplier: multiplier + anniversaryBonusFor(card), isRotating }
+}
+
+// Some perks have an announced end date. Returning 0 past it means every rate
+// in the app corrects itself on the day, with no edit needed.
+export function anniversaryBonusFor(card, now = new Date()) {
+  if (!card.anniversaryBonus) return 0
+  if (card.anniversaryBonusEndsOn && now >= new Date(`${card.anniversaryBonusEndsOn}T00:00:00`)) return 0
+  return card.anniversaryBonus
 }
 
 export function cppFor(state, card) {

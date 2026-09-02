@@ -18,7 +18,10 @@ export const CATEGORIES = [
   { id: 'dining', label: 'Restaurants & dining', hint: 'Sit-down, takeout, delivery, bars', group: 'Everyday', icon: '🍽️' },
   { id: 'groceries', label: 'Groceries (in store)', hint: 'US supermarkets — not Walmart/Target/warehouse', group: 'Everyday', icon: '🛒' },
   { id: 'groceries_online', label: 'Groceries (online)', hint: 'Instacart, online supermarket orders', group: 'Everyday', icon: '📦' },
-  { id: 'wholesale', label: 'Warehouse clubs', hint: 'Costco, Sam’s Club, BJ’s', group: 'Everyday', icon: '🏬' },
+  // Kept separate from groceries because Amex and Capital One both exclude
+  // superstores and warehouse clubs from their grocery bonuses.
+  { id: 'superstores', label: 'Walmart & Target', hint: 'Superstores — excluded from grocery bonuses', group: 'Everyday', icon: '🎯' },
+  { id: 'wholesale', label: 'Costco & warehouse clubs', hint: 'Costco, Sam’s Club, BJ’s', group: 'Everyday', icon: '🏬' },
   { id: 'gas', label: 'Gas stations', hint: 'Fuel, EV charging at stations', group: 'Everyday', icon: '⛽' },
   { id: 'drugstores', label: 'Drugstores', hint: 'CVS, Walgreens, Rite Aid', group: 'Everyday', icon: '💊' },
 

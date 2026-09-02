@@ -1,6 +1,7 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
 import { useStore } from './store/StoreContext'
 import Home from './pages/Home'
+import MyCards from './pages/MyCards'
 import QuickPicks from './pages/QuickPicks'
 import WhichCard from './pages/WhichCard'
 import FeeCalculator from './pages/FeeCalculator'
@@ -8,8 +9,9 @@ import CreditTracker from './pages/CreditTracker'
 import Settings from './pages/Settings'
 
 const NAV = [
-  { to: '/', label: 'My Cards', end: true },
+  { to: '/', label: 'Home', end: true },
   { to: '/quick-picks', label: 'Quick Picks' },
+  { to: '/my-cards', label: 'My Cards' },
   { to: '/which-card', label: 'Which Card?' },
   { to: '/fee-calculator', label: 'Fee Calculator' },
   { to: '/credits', label: 'Credit Tracker' },
@@ -66,6 +68,7 @@ export default function App() {
 
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/my-cards" element={<MyCards />} />
           <Route path="/quick-picks" element={<QuickPicks />} />
           <Route path="/which-card" element={<WhichCard />} />
           <Route path="/fee-calculator" element={<FeeCalculator />} />

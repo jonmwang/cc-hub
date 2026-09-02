@@ -63,8 +63,12 @@ export const CARDS = [
     annualFee: 95,
     base: 1,
     anniversaryBonus: 0.1,
+    // Chase is retiring the 10% anniversary bonus. After this date the app
+    // stops adding the +0.1x on its own, so every Chase rate below quietly
+    // reverts to the plain published number instead of overstating it.
+    anniversaryBonusEndsOn: '2026-10-01',
     anniversaryBonusNote:
-      '10% anniversary points bonus on the prior year of spend — modelled here as +0.1x on every category.',
+      '10% anniversary points bonus on the prior year of spend — modelled here as +0.1x on every category. Chase is ending this benefit on 1 October 2026, after which these rates drop back to the base numbers automatically.',
     earn: {
       travel_portal_chase: 5,
       rideshare: 5,

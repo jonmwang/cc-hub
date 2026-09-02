@@ -8,8 +8,9 @@ unused this period.
 
 | Page | What it's for |
 |---|---|
+| **Home** | Spacious landing page: household totals and one big button through to Quick Picks. No detail. |
+| **Quick Picks** | The flow chart. Top-to-bottom "buying X → use Y", collapsed by default. Built for the person who doesn't want to think about this. |
 | **My Cards** | Every card in the household with its multipliers, colour-coded by who holds it. |
-| **Quick Picks** | Read-only, top-to-bottom "buying X → use Y". Nothing to configure. Built for the person who doesn't want to think about this. |
 | **Which Card?** | The full tool. Pick a category, re-rank by what you value each currency at, edit quarterly categories and merchant quirks. |
 | **Fee Calculator** | Annual fee minus what the credits are actually worth *to you*, per card. |
 | **Credit Tracker** | Check off credits as you use them; windows reset themselves. |
@@ -89,6 +90,30 @@ categories in the UI. Every other card's rates are fixed in code on purpose, so 
 incorrect can be entered by accident.
 
 Rates were verified against the issuers' own product pages in September 2026.
+
+### How Quick Picks orders itself
+
+It's a funnel, not a list. Steps are ordered by how often you actually buy the thing —
+groceries and food at the top, travel near the bottom. Then two rules tidy it up:
+
+- **Adjacent steps that land on the same card merge into one line**, so you get
+  "Streaming, Rideshare & Transit → Sapphire Preferred" instead of three near-identical rows.
+- **A step whose best answer is just the catch-all card at the catch-all rate gets pushed to
+  the bottom** and folded into "everything else". That's what stops a 2x generalist like the
+  Venture X from appearing above a 5x specialist like the Platinum.
+
+A step can set `pin: true` to opt out of that second rule. Walmart & Target does, because the
+whole point of that line is warning you off the grocery card — it has to sit under Groceries
+even though its answer is the default.
+
+### Card art
+
+`src/data/cardArt.js` holds a stylised face per card — colour, finish, accent stripe. These
+are deliberately generic, not the issuers' artwork.
+
+To use real photos instead, drop files into `public/cards/` and add `image: 'cards/name.png'`
+to that card's entry; `CardArt` renders the photo and ignores the rest. Issuer card images are
+generally copyrighted, so keep those to a private deployment.
 
 **Merchant quirks** are the escape hatch for stores that ring up as the wrong category —
 the Which Card? sidebar lets you name a place, pin the category it actually codes as, and
