@@ -154,9 +154,16 @@ export function StoreProvider({ children }) {
       } else if (stored) {
         setState(migrate(stored))
       } else if (stateRef.current) {
-        // First device into an empty household: keep what's already on screen
-        // and let the save effect seed the remote copy with it.
-        setState(stateRef.current)
+        // First device into an empty household — the path taken when you hit
+        // "Turn on live sync" with the app already loaded.
+        //
+        // Seed the remote copy explicitly rather than leaving it to the save
+        // effect. setState with an unchanged object reference is a no-op in
+        // React, so that effect would never re-run and the household document
+        // would never be created: sync would sit on "Connecting…" forever.
+        hydrated.current = true
+        adapter.save(stateRef.current)
+        return
       } else {
         // Nothing in the cloud yet and nothing on screen — fall back to whatever
         // this browser had locally so switching on sync never looks like a wipe.
