@@ -36,8 +36,17 @@ the Settings page.
 2. **Create a project** → name it anything (`cc-hub` works) → you can disable
    Google Analytics, it isn't used.
 3. In the left sidebar: **Build → Firestore Database → Create database**.
-4. Choose a location near you. Start in **production mode** — the rules below
-   replace the defaults anyway.
+4. Choose a location near you. Start in **production mode**, not test mode.
+
+   Test mode writes `allow read, write: if request.time < <30 days from now>` —
+   your database is open to the whole internet for a month, and then silently
+   denies everything, breaking sync with no obvious cause. Production mode
+   starts at `if false`, locked from the first second. You replace the rule
+   either way in the next step.
+
+   **Publish the rules below before turning sync on**, or the app will get
+   `permission-denied`. That's a loud, immediate failure rather than a delayed
+   one, which is the point of starting locked.
 
 ## 2. Register a web app and copy the config
 
@@ -68,16 +77,31 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /households/{householdId} {
-      // Documents hold only ciphertext, and the household id is 128 bits of
-      // randomness, so it cannot be guessed or enumerated. Reads and writes are
-      // open, but there is nothing readable to find.
-      allow read, write: if
-        // Refuse anything that isn't the expected encrypted shape, so the
-        // database can't be used as free general-purpose storage.
-        request.resource == null ||
-        (request.resource.data.keys().hasOnly(['iv', 'data', 'updatedAt', 'v'])
-         && request.resource.data.data is string
-         && request.resource.data.data.size() < 200000);
+
+      // Only the encrypted shape is accepted, so the database can't be used as
+      // free general-purpose storage by anyone who finds the project id.
+      function validPayload() {
+        return request.resource.data.keys().hasOnly(['iv', 'data', 'updatedAt', 'v'])
+            && request.resource.data.iv is string
+            && request.resource.data.data is string
+            && request.resource.data.data.size() < 200000;
+      }
+
+      // Fetching one household by its id is fine: the id is 128 bits of
+      // randomness and the contents are ciphertext.
+      allow get: if true;
+
+      // Listing the collection is NOT fine. `allow read` would permit both get
+      // and list, and a list lets anyone pull every household document without
+      // knowing a single id. Still ciphertext, but there is no reason to hand
+      // out a pile of it.
+      allow list: if false;
+
+      allow create, update: if validPayload();
+
+      // Deletes carry no payload, so a shape check can't gate them. Nobody
+      // needs to delete from the app — do it from the Firebase console.
+      allow delete: if false;
     }
   }
 }
