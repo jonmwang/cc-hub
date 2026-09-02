@@ -186,6 +186,26 @@ cuts the corners into the alpha channel, and writes WebP. Because the corners ar
 the page uses `filter: drop-shadow` rather than `box-shadow`, so the shadow hugs the card
 instead of drawing a rectangle behind it. It needs Pillow (`pip install pillow`).
 
+### Merchant logos
+
+Quick Picks rows show a real storefront logo when a merchant rule has an `image`, because a
+logo is recognised faster than any emoji. Drop the source into `other images/` and re-run
+`scripts/prep_card_images.py`; it trims the surrounding whitespace, pads to a transparent
+square, and writes `public/logos/<name>.webp`. Reference it as `image: 'logos/<name>.webp'` on
+the rule.
+
+### What Quick Picks deliberately leaves out
+
+**Rideshare.** The Reserve earns 5x, but the Uber credits live on the Amex cards and only pay
+out if you actually spend on those — so the "best" card depends on whether you still have
+credit left this month, which is not a one-line answer. Both phones already have a default card
+set in the Uber app, so the question never arises in practice. A line that needs a paragraph of
+caveats is worse than no line.
+
+**Merged rows.** Steps used to fold together when they shared a card, producing lines like
+"Streaming, Rideshare & Transit". It was compact but harder to scan, which defeats the page's
+whole purpose. Only the terminal fold-up survives, so the catch-all card appears once, last.
+
 **Merchant quirks** are the escape hatch for stores that ring up as the wrong category —
 the Which Card? sidebar lets you name a place, pin the category it actually codes as, and
 knock out the cards that don't earn the bonus there. Joymart is seeded as an example.

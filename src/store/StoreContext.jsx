@@ -44,6 +44,9 @@ const DEFAULT_MERCHANT_RULES = [
     categoryId: 'groceries',
     excludedCardIds: ['amex_gold'],
     note: 'Does not code as groceries or dining on the Amex Gold.',
+    // Logos live in public/logos/, produced by scripts/prep_card_images.py.
+    // A real storefront logo is recognised far faster than any emoji.
+    image: 'logos/joymart.webp',
   },
 ]
 

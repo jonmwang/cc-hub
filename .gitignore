@@ -8,3 +8,6 @@ dist
 
 # Original unprocessed card photos — the normalised ones in public/cards/ ship instead
 card images/
+
+# Original unprocessed merchant logos — processed ones ship in public/logos/
+other images/

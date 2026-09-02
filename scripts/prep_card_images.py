@@ -133,3 +133,49 @@ for src_name, card_id in MAPPING.items():
     print(f'{card_id:30} {before:>13}  {note:34} {TARGET_W}x{TARGET_H}  {size/1024:6.1f} KB')
 
 print('\nwrote', len(MAPPING), 'files to', OUT)
+
+
+# ── Merchant logos ───────────────────────────────────────────────────────────
+# Same idea as the cards: sources arrive as a logo floating in a big white
+# rectangle. Trimmed and padded to a transparent square so it drops into the
+# round icon tile on Quick Picks without a white block around it.
+
+LOGO_SRC = os.path.join(ROOT, 'other images')
+LOGO_OUT = os.path.join(ROOT, 'public', 'logos')
+LOGO_SIZE = 192
+
+
+def prep_logos():
+    if not os.path.isdir(LOGO_SRC):
+        return
+    os.makedirs(LOGO_OUT, exist_ok=True)
+    print(f'\n{"logo":24} {"source":>13}  {"trim":30} {"final":>10}  bytes')
+    print('-' * 92)
+
+    for name in sorted(os.listdir(LOGO_SRC)):
+        if name.startswith('.'):
+            continue
+        path = os.path.join(LOGO_SRC, name)
+        try:
+            img = Image.open(path).convert('RGBA')
+        except Exception:
+            continue
+        before = f'{img.size[0]}x{img.size[1]}'
+        img, note = trim(img)
+
+        # Pad the trimmed logo to a square, centred, on transparency, leaving a
+        # little breathing room so it isn't flush to the tile edge.
+        w, h = img.size
+        side = max(w, h)
+        pad = round(side * 0.08)
+        canvas = Image.new('RGBA', (side + pad * 2, side + pad * 2), (0, 0, 0, 0))
+        canvas.paste(img, ((canvas.size[0] - w) // 2, (canvas.size[1] - h) // 2), img)
+        canvas = canvas.resize((LOGO_SIZE, LOGO_SIZE), Image.LANCZOS)
+
+        stem = os.path.splitext(name)[0].lower().replace(' ', '-')
+        dest = os.path.join(LOGO_OUT, f'{stem}.webp')
+        canvas.save(dest, 'WEBP', quality=92, method=6)
+        print(f'{stem:24} {before:>13}  {note:30} {LOGO_SIZE}x{LOGO_SIZE}  {os.path.getsize(dest)/1024:6.1f} KB')
+
+
+prep_logos()

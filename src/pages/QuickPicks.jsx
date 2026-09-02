@@ -9,31 +9,35 @@ import { Segmented, cardTitle } from '../components/ui'
 
 // A flow chart, not a catalogue.
 //
-// Ordered by how often you actually reach for a card — food and groceries at
-// the top, the catch-all at the bottom — rather than by category type. Adjacent
-// steps that resolve to the same card collapse into one line, so the list
-// funnels the way a real flow chart does and the generic card lands last.
+// Ordered by how often you actually reach for a card day to day, ending at the
+// catch-all. Each step keeps its own line — bundling unrelated categories that
+// happened to share a card ("Streaming, Rideshare & Transit") saved space but
+// made the list harder to scan, which defeats the point of the page. The only
+// grouping left is the terminal one, where categories with no real answer fold
+// into "everything else" so the generic card appears once, at the bottom.
 //
-// Walmart & Target sit directly under Groceries because they're the exception
-// that grocery bonuses carve out.
+// Rideshare is deliberately absent. It has too many competing dependencies to
+// answer in one line: the Reserve earns 5x, but Uber credits sit on the Amex
+// cards and have to be spent on those to be captured at all. Both phones
+// already have a default card set in the Uber app, so the question never comes
+// up in practice.
 //
-// `short` is the label used when a step gets merged with its neighbours.
+// `short` is the label used if a step ever does get folded into another line.
 const FLOW = [
+  { categoryId: 'dining', label: 'Restaurants & takeout', short: 'Restaurants', icon: '🍽️' },
   { categoryId: 'groceries', label: 'Groceries', short: 'Groceries', icon: '🛒' },
   // `pin` keeps a step in place even when its answer is just the catch-all
   // card. Walmart and Target earn nothing special anywhere, but the whole point
-  // of the line is warning you off the grocery card, so it has to stay put.
+  // of the line is warning you off the grocery card, so it sits right under it.
   { categoryId: 'superstores', label: 'Walmart & Target', short: 'Walmart & Target', icon: '🎯', pin: true },
-  { categoryId: 'dining', label: 'Restaurants & takeout', short: 'Restaurants', icon: '🍽️' },
-  { categoryId: 'drugstores', label: 'Drugstores', short: 'Drugstores', icon: '💊' },
-  { categoryId: 'gas', label: 'Gas', short: 'Gas', icon: '⛽' },
   { categoryId: 'entertainment', label: 'Movies & live events', short: 'Movies', icon: '🎬' },
-  { categoryId: 'streaming', label: 'Streaming subscriptions', short: 'Streaming', icon: '📺' },
-  { categoryId: 'online_retail', label: 'Online shopping', short: 'Online shopping', icon: '🛍️' },
-  { categoryId: 'rideshare', label: 'Uber & Lyft', short: 'Rideshare', icon: '🚕' },
   { categoryId: 'transit', label: 'Subway, bus & train', short: 'Transit', icon: '🚇' },
+  { categoryId: 'gas', label: 'Gas', short: 'Gas', icon: '⛽' },
+  { categoryId: 'drugstores', label: 'Drugstores', short: 'Drugstores', icon: '💊' },
   { categoryId: 'flights_direct', label: 'Flights', short: 'Flights', icon: '✈️' },
   { categoryId: 'hotels_direct', label: 'Hotels', short: 'Hotels', icon: '🏨' },
+  { categoryId: 'streaming', label: 'Streaming subscriptions', short: 'Streaming', icon: '📺' },
+  { categoryId: 'online_retail', label: 'Online shopping', short: 'Online shopping', icon: '🛍️' },
   { categoryId: 'wholesale', label: 'Costco & warehouse clubs', short: 'Costco', icon: '🏬' },
   { categoryId: 'everything_else', label: 'Everything else', short: 'everything else', icon: '💳' },
 ]
@@ -54,7 +58,15 @@ export default function QuickPicks() {
             excludeCardIds: rule.excludedCardIds,
           })
           return ranked[0]
-            ? { id: `m-${rule.id}`, icon: '📍', label: rule.name, note: rule.note, ranked, steps: [] }
+            ? {
+                id: `m-${rule.id}`,
+                icon: '📍',
+                image: rule.image,
+                label: rule.name,
+                note: rule.note,
+                ranked,
+                steps: [],
+              }
             : null
         })
         .filter(Boolean),
@@ -86,12 +98,7 @@ export default function QuickPicks() {
         continue
       }
 
-      const prev = rows[rows.length - 1]
-      if (prev && prev.ranked[0].key === winner.key && prev.ranked[0].isRotating === winner.isRotating) {
-        prev.steps.push(step)
-      } else {
-        rows.push({ id: step.categoryId, icon: step.icon, steps: [step], ranked })
-      }
+      rows.push({ id: step.categoryId, icon: step.icon, steps: [step], ranked })
     }
 
     const everythingElse = FLOW[FLOW.length - 1]
@@ -187,8 +194,8 @@ function FlowRow({ row, index, last, open, onToggle, state }) {
       className={`qp-step ${open ? 'open' : ''} ${row.note ? 'special' : ''} ${last ? 'terminal' : ''}`}
     >
       <button className="qp-trigger" onClick={onToggle} aria-expanded={open}>
-        <span className="qp-icon" aria-hidden="true">
-          {row.icon}
+        <span className={`qp-icon ${row.image ? 'has-image' : ''}`} aria-hidden="true">
+          {row.image ? <img src={row.image} alt="" loading="lazy" /> : row.icon}
         </span>
 
         <span className="qp-label">{title}</span>
@@ -217,6 +224,7 @@ function FlowRow({ row, index, last, open, onToggle, state }) {
           >
             <div className="qp-details">
               <div className="qp-detail-hero">
+                {row.image && <img className="qp-detail-logo" src={row.image} alt="" />}
                 <CardArt card={card} width={132} />
                 <div>
                   <div className="qp-detail-name">{cardTitle(card)}</div>

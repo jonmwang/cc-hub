@@ -1324,24 +1324,52 @@ input[type='range'] {
   text-align: left;
 }
 
+/* Bigger than a text glyph: this is the thing you're scanning for, so it has
+   to read at a glance on a phone held at a register. */
 .qp-icon {
-  font-size: 19px;
-  width: 36px;
-  height: 36px;
+  font-size: 30px;
+  line-height: 1;
+  width: 54px;
+  height: 54px;
   flex: none;
   display: grid;
   place-items: center;
   background: var(--surface-3);
-  border-radius: 10px;
+  border-radius: 14px;
 }
 .qp-step.special .qp-icon {
-  background: var(--brand-soft);
+  background: #fff;
+  border: 1px solid var(--line);
+}
+/* A real storefront logo beats any emoji for recognition, so give it the whole
+   tile with only a little inset. */
+.qp-icon.has-image {
+  padding: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.qp-icon.has-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.qp-detail-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: 5px;
+  flex: none;
 }
 
 .qp-label {
   flex: 1;
   min-width: 0;
-  font-size: 15.5px;
+  font-size: 16.5px;
   font-weight: 700;
   letter-spacing: -0.015em;
 }
@@ -1507,7 +1535,7 @@ input[type='range'] {
      both onto one line wraps the card name into an unreadable column. */
   .qp-trigger {
     display: grid;
-    grid-template-columns: 58px minmax(0, 1fr) auto;
+    grid-template-columns: 62px minmax(0, 1fr) auto;
     grid-template-areas:
       'icon  label  chevron'
       'thumb answer answer';
@@ -1520,7 +1548,12 @@ input[type='range'] {
   }
   .qp-label {
     grid-area: label;
-    font-size: 15px;
+    font-size: 15.5px;
+  }
+  .qp-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 27px;
   }
   .qp-chevron {
     grid-area: chevron;
