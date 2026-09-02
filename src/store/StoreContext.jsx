@@ -1,0 +1,227 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { CARD_BY_ID } from '../data/cards'
+import { CURRENCIES } from '../data/currencies'
+import { getAdapter, consumeSharedStateFromUrl } from '../lib/storage'
+import { currentQuarterKey } from '../lib/periods'
+
+const StoreContext = createContext(null)
+
+export const walletKey = (cardId, ownerId) => `${cardId}__${ownerId}`
+
+const DEFAULT_PEOPLE = [
+  { id: 'me', name: 'Me', color: 'blue' },
+  { id: 'partner', name: 'Partner', color: 'violet' },
+]
+
+// Seeded from the spreadsheet so the app is useful on first load. Everything
+// here is editable and can be wiped from Settings before sharing with anyone.
+const DEFAULT_WALLET = [
+  ...[
+    'chase_freedom_flex',
+    'chase_freedom_unlimited',
+    'chase_sapphire_preferred',
+    'chase_sapphire_reserve',
+    'amex_gold',
+    'amex_platinum',
+    'c1_venture_x',
+    'wf_autograph',
+  ].map((cardId) => ({ key: walletKey(cardId, 'me'), cardId, ownerId: 'me', openDate: null })),
+  ...['chase_sapphire_preferred', 'c1_savor', 'c1_venture_x', 'discover_it'].map((cardId) => ({
+    key: walletKey(cardId, 'partner'),
+    cardId,
+    ownerId: 'partner',
+    openDate: null,
+  })),
+]
+
+// Named places whose merchant coding doesn't match what you'd expect. Each rule
+// pins a category and knocks out the cards that don't actually earn the bonus
+// there, so Quick Picks can answer the store rather than the category.
+const DEFAULT_MERCHANT_RULES = [
+  {
+    id: 'joymart',
+    name: 'Joymart',
+    categoryId: 'groceries',
+    excludedCardIds: ['amex_gold'],
+    note: 'Does not code as groceries or dining on the Amex Gold.',
+  },
+]
+
+function defaultState() {
+  return {
+    version: 1,
+    people: DEFAULT_PEOPLE,
+    wallet: DEFAULT_WALLET,
+    valuations: Object.fromEntries(Object.values(CURRENCIES).map((c) => [c.id, c.defaultCpp])),
+    settings: {
+      valuationMode: 'points', // 'points' | 'cashback_ok'
+      hideCashbackOnly: false,
+      ownerFilter: 'all', // 'all' | personId
+      quickPicksOwner: 'all', // whose wallet the simple Quick Picks page shows
+    },
+    rotating: {}, // walletKey -> { quarterKey, categories: [] }
+    merchantRules: DEFAULT_MERCHANT_RULES,
+    creditValues: {}, // walletKey -> creditId -> number
+    creditsUsed: {}, // walletKey -> creditId -> { periodKey, usedAt }
+  }
+}
+
+// Old saves keep working when the catalog gains fields.
+function migrate(saved) {
+  const base = defaultState()
+  if (!saved || typeof saved !== 'object') return base
+  return {
+    ...base,
+    ...saved,
+    people: saved.people?.length ? saved.people : base.people,
+    wallet: (saved.wallet ?? base.wallet).filter((w) => CARD_BY_ID[w.cardId]),
+    valuations: { ...base.valuations, ...(saved.valuations ?? {}) },
+    settings: { ...base.settings, ...(saved.settings ?? {}) },
+    rotating: saved.rotating ?? {},
+    merchantRules: saved.merchantRules ?? base.merchantRules,
+    creditValues: saved.creditValues ?? {},
+    creditsUsed: saved.creditsUsed ?? {},
+  }
+}
+
+export function StoreProvider({ children }) {
+  const [state, setState] = useState(null)
+  const [sharedNotice, setSharedNotice] = useState(false)
+  const adapter = useMemo(() => getAdapter(), [])
+  const hydrated = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const shared = consumeSharedStateFromUrl()
+      const stored = await adapter.load()
+      if (cancelled) return
+      if (shared) {
+        setState(migrate(shared))
+        setSharedNotice(true)
+      } else {
+        setState(migrate(stored))
+      }
+      hydrated.current = true
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [adapter])
+
+  // Persist on every change, but never write back the empty pre-hydration state.
+  useEffect(() => {
+    if (!state || !hydrated.current) return
+    adapter.save(state)
+  }, [state, adapter])
+
+  useEffect(() => adapter.subscribe((next) => setState(migrate(next))), [adapter])
+
+  const update = useCallback((fn) => setState((s) => (s ? fn(s) : s)), [])
+
+  const actions = useMemo(
+    () => ({
+      addCard: (cardId, ownerId) =>
+        update((s) => {
+          const key = walletKey(cardId, ownerId)
+          if (s.wallet.some((w) => w.key === key)) return s
+          return { ...s, wallet: [...s.wallet, { key, cardId, ownerId, openDate: null }] }
+        }),
+
+      removeCard: (key) =>
+        update((s) => ({ ...s, wallet: s.wallet.filter((w) => w.key !== key) })),
+
+      setOpenDate: (key, openDate) =>
+        update((s) => ({
+          ...s,
+          wallet: s.wallet.map((w) => (w.key === key ? { ...w, openDate } : w)),
+        })),
+
+      setValuation: (currencyId, cpp) =>
+        update((s) => ({ ...s, valuations: { ...s.valuations, [currencyId]: cpp } })),
+
+      resetValuations: () =>
+        update((s) => ({
+          ...s,
+          valuations: Object.fromEntries(Object.values(CURRENCIES).map((c) => [c.id, c.defaultCpp])),
+        })),
+
+      setSetting: (patch) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } })),
+
+      renamePerson: (id, name) =>
+        update((s) => ({ ...s, people: s.people.map((p) => (p.id === id ? { ...p, name } : p)) })),
+
+      // Rotating categories are scoped to a wallet entry and stamped with the
+      // quarter, so stale picks disappear on their own.
+      setRotatingCategories: (key, categories) =>
+        update((s) => ({
+          ...s,
+          rotating: { ...s.rotating, [key]: { quarterKey: currentQuarterKey(), categories } },
+        })),
+
+      addMerchantRule: (rule) =>
+        update((s) => ({
+          ...s,
+          merchantRules: [
+            ...s.merchantRules,
+            { id: `m_${Date.now().toString(36)}`, excludedCardIds: [], note: '', ...rule },
+          ],
+        })),
+
+      updateMerchantRule: (id, patch) =>
+        update((s) => ({
+          ...s,
+          merchantRules: s.merchantRules.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+        })),
+
+      removeMerchantRule: (id) =>
+        update((s) => ({ ...s, merchantRules: s.merchantRules.filter((m) => m.id !== id) })),
+
+      setCreditValue: (key, creditId, value) =>
+        update((s) => ({
+          ...s,
+          creditValues: {
+            ...s.creditValues,
+            [key]: { ...(s.creditValues[key] ?? {}), [creditId]: value },
+          },
+        })),
+
+      resetCreditValues: (key) =>
+        update((s) => {
+          const next = { ...s.creditValues }
+          delete next[key]
+          return { ...s, creditValues: next }
+        }),
+
+      toggleCreditUsed: (key, creditId, periodKey, currentlyUsed) =>
+        update((s) => {
+          const forCard = { ...(s.creditsUsed[key] ?? {}) }
+          if (currentlyUsed) delete forCard[creditId]
+          else forCard[creditId] = { periodKey, usedAt: new Date().toISOString() }
+          return { ...s, creditsUsed: { ...s.creditsUsed, [key]: forCard } }
+        }),
+
+      replaceState: (next) => setState(migrate(next)),
+
+      resetAll: () => setState(defaultState()),
+
+      clearWallet: () => update((s) => ({ ...s, wallet: [], rotating: {}, creditValues: {}, creditsUsed: {} })),
+    }),
+    [update],
+  )
+
+  const value = useMemo(
+    () => ({ state, actions, adapter, sharedNotice, dismissSharedNotice: () => setSharedNotice(false) }),
+    [state, actions, adapter, sharedNotice],
+  )
+
+  if (!state) return null
+
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+}
+
+export function useStore() {
+  const ctx = useContext(StoreContext)
+  if (!ctx) throw new Error('useStore must be used inside StoreProvider')
+  return ctx
+}
