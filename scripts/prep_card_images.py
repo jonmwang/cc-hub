@@ -15,8 +15,9 @@ For each image:
 from PIL import Image, ImageDraw
 import os
 
-SRC = '/Users/wang42690/Downloads/cc-hub/card images'
-OUT = '/Users/wang42690/Downloads/cc-hub/public/cards'
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = os.path.join(ROOT, 'card images')
+OUT = os.path.join(ROOT, 'public', 'cards')
 
 MAPPING = {
     'card_freedomFlex_MC.webp': 'chase_freedom_flex',
