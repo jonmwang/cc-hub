@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useStore } from '../store/StoreContext'
 import { CARD_BY_ID } from '../data/cards'
 import { occurrencesPerYear } from '../lib/periods'
+import CardArt from '../components/CardArt'
 import { Checkbox, OwnerChip, Panel, cardTitle, money } from '../components/ui'
 
 const PERIOD_LABEL = {
@@ -89,6 +90,7 @@ export default function FeeCalculator() {
                     onClick={() => setSelectedKey(w.key)}
                   >
                     <span className={`owner-dot ${person?.color === 'violet' ? 'partner' : 'me'}`} />
+                    <CardArt card={c} width={40} showText={false} className="picker-art" />
                     <span className="picker-name">{c.name}</span>
                     <span className="picker-fee">{c.annualFee === 0 ? '$0' : money(c.annualFee)}</span>
                   </button>
@@ -106,13 +108,14 @@ export default function FeeCalculator() {
         </aside>
 
         <div>
-          <div className="section-head" style={{ marginTop: 0 }}>
-            <div>
-              <h2>
-                {cardTitle(card)}
-              </h2>
-              <div className="sub" style={{ marginTop: 6 }}>
-                <OwnerChip person={people[entry.ownerId]} />
+          <div className="section-head" style={{ marginTop: 0, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              <CardArt card={card} width={104} />
+              <div>
+                <h2>{cardTitle(card)}</h2>
+                <div className="sub" style={{ marginTop: 6 }}>
+                  <OwnerChip person={people[entry.ownerId]} />
+                </div>
               </div>
             </div>
           </div>

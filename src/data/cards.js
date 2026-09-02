@@ -42,7 +42,8 @@ export const CARDS = [
     base: 1,
     rotating: true,
     rotatingCap: 1500,
-    rotatingNote: '5% on up to $1,500 in combined spend each quarter, after activation.',
+    rotatingBonus: 4,
+    rotatingNote: 'Adds 4x on up to $1,500 in combined spend each quarter, after activation.',
     earn: {
       travel_portal_chase: 5,
       dining: 3,
@@ -50,7 +51,7 @@ export const CARDS = [
     },
     credits: [],
     notes: [
-      'The quarterly 5% replaces the standing rate rather than stacking, so it only matters when it beats the 3% dining/drugstore rates.',
+      'The quarterly bonus stacks on top of the standing rate rather than replacing it. On a plain category that is the advertised 5%, but on dining or drugstores — already 3x — a quarterly pick makes it 7x.',
       'Has a 3% foreign transaction fee — leave it home when travelling abroad.',
       'Points only become transferable while you also hold a Sapphire card.',
     ],
@@ -270,7 +271,8 @@ export const CARDS = [
     base: 1,
     rotating: true,
     rotatingCap: 1500,
-    rotatingNote: '5% on up to $1,500 in spend each quarter, after activation.',
+    rotatingBonus: 4,
+    rotatingNote: 'Adds 4% on up to $1,500 in spend each quarter, after activation.',
     earn: {},
     credits: [],
     notes: [

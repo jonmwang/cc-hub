@@ -2,8 +2,6 @@ import { CARD_BY_ID } from '../data/cards'
 import { CURRENCIES } from '../data/currencies'
 import { currentQuarterKey } from './periods'
 
-const ROTATING_RATE = 5
-
 // Rotating picks only count for the quarter they were entered in — an
 // un-refreshed quarter silently falls back to the card's standing rates rather
 // than quietly recommending last quarter's categories.
@@ -23,11 +21,13 @@ export function effectiveMultiplier(state, walletEntry, categoryId) {
   let isRotating = false
 
   if (card.rotating && activeRotatingCategories(state, walletEntry.key).includes(categoryId)) {
-    // The quarterly rate replaces the standing rate rather than stacking on it.
-    if (ROTATING_RATE > standing) {
-      multiplier = ROTATING_RATE
-      isRotating = true
-    }
+    // The quarterly bonus is added ON TOP of whatever the card already earns,
+    // it does not replace it. On a plain 1x category that gives the advertised
+    // 5% (1 + 4). But where the card already pays a standing bonus — dining and
+    // drugstores on the Freedom Flex, both 3x — the bonus stacks to 7x. Easy to
+    // model wrong as a flat 5x, and it costs you two points per dollar.
+    multiplier = standing + (card.rotatingBonus ?? 4)
+    isRotating = true
   }
 
   return { multiplier: multiplier + anniversaryBonusFor(card), isRotating }

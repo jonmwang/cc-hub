@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useStore } from '../store/StoreContext'
@@ -55,14 +55,8 @@ export default function Home() {
       >
         <div className="eyebrow">{currentQuarterLabel()}</div>
         <h1>
-          {summary.count} cards.
-          <br />
-          One answer at a time.
+          <CountUp to={summary.count} /> cards
         </h1>
-        <p>
-          Everything you and your partner carry, in one place. When you're standing at a register, you
-          only need one page.
-        </p>
 
         <Link to="/quick-picks" className="home-cta">
           <span className="home-cta-text">
@@ -140,6 +134,52 @@ export default function Home() {
         </Link>
       </nav>
     </div>
+  )
+}
+
+// Spins from 1 up to the wallet size on load. Uses an ease-out so it decelerates
+// into the final number rather than stopping dead. Respects reduced-motion, and
+// counts in whole cards — no fractional card ever shows.
+function CountUp({ to, duration = 1100 }) {
+  const [n, setN] = useState(to > 1 ? 1 : to)
+
+  useEffect(() => {
+    const skip =
+      to <= 1 ||
+      // Browsers pause rAF in a background tab. Without this the counter would
+      // sit frozen on "1" until the tab was looked at, which reads as broken.
+      document.hidden ||
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+    if (skip) {
+      setN(to)
+      return
+    }
+
+    let frame
+    const start = performance.now()
+    const tick = (now) => {
+      const t = Math.min((now - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setN(Math.max(1, Math.round(eased * to)))
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+
+    // Belt and braces: if the frames stop arriving for any reason, land on the
+    // real number rather than stranding the page on a half-finished count.
+    const guard = setTimeout(() => setN(to), duration + 250)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(guard)
+    }
+  }, [to, duration])
+
+  return (
+    <span className="count-up" aria-label={`${to} cards`}>
+      {n}
+    </span>
   )
 }
 

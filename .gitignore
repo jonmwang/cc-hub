@@ -5,3 +5,6 @@ dist
 .env
 .env.*
 !.env.example
+
+# Original unprocessed card photos — the normalised ones in public/cards/ ship instead
+card images/

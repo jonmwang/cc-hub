@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '../store/StoreContext'
 import { CARD_BY_ID } from '../data/cards'
 import { CATEGORY_BY_ID } from '../data/categories'
@@ -61,16 +61,26 @@ export default function MyCards() {
   )
 }
 
+// A quarterly pick stacks on the card's standing rate, so dining or drugstores
+// on the Freedom Flex land at 7x rather than the advertised 5x.
+function rotatingMultiplier(card, catId, bonus) {
+  const standing = card.earn[catId] ?? card.base
+  return standing + (card.rotatingBonus ?? 4) + bonus
+}
+
 function WalletCard({ entry, person, index, state }) {
+  const [open, setOpen] = useState(false)
   const card = CARD_BY_ID[entry.cardId]
   const rotating = activeRotatingCategories(state, entry.key)
   const bonus = anniversaryBonusFor(card)
 
   const rates = Object.entries(card.earn)
+    .filter(([catId]) => !rotating.includes(catId))
     .map(([catId, mult]) => ({ catId, mult: mult + bonus, label: CATEGORY_BY_ID[catId]?.label ?? catId }))
     .sort((a, b) => b.mult - a.mult)
 
   const ownerClass = person?.color === 'violet' ? 'owner-partner' : 'owner-me'
+  const hasDetails = Boolean(card.notes?.length || card.anniversaryBonusNote || card.rotatingNote)
 
   return (
     <motion.article
@@ -96,17 +106,17 @@ function WalletCard({ entry, person, index, state }) {
       </div>
 
       <div className="wc-rates">
-        {rotating.length > 0 && (
-          <div className="rate-row">
+        {rotating.map((catId) => (
+          <div className="rate-row" key={`rot-${catId}`}>
             <span className="rate-mult" style={{ color: 'var(--amber)' }}>
-              5x
+              {formatMultiplier(rotatingMultiplier(card, catId, bonus))}
             </span>
             <span className="rate-label" style={{ color: 'var(--amber)', fontWeight: 600 }}>
-              {rotating.map((c) => CATEGORY_BY_ID[c]?.label ?? c).join(', ')}
+              {CATEGORY_BY_ID[catId]?.label ?? catId}
               <span style={{ color: 'var(--muted)', fontWeight: 400 }}> · this quarter</span>
             </span>
           </div>
-        )}
+        ))}
 
         {rates.map((r) => (
           <div className="rate-row" key={r.catId}>
@@ -119,17 +129,43 @@ function WalletCard({ entry, person, index, state }) {
           <span className="rate-mult">{formatMultiplier(card.base + bonus)}</span>
           <span className="rate-label">Everything else</span>
         </div>
-
-        {card.anniversaryBonusNote && <p className="wc-bonus-note">{card.anniversaryBonusNote}</p>}
-
-        {card.notes?.length > 0 && (
-          <ul className="notes-list">
-            {card.notes.map((n, i) => (
-              <li key={i}>{n}</li>
-            ))}
-          </ul>
-        )}
       </div>
+
+      {hasDetails && (
+        <>
+          <button className="wc-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+            {open ? 'Hide details' : 'Show details'}
+            <span className="wc-toggle-chevron" data-open={open} aria-hidden="true">
+              ⌄
+            </span>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {open && (
+              <motion.div
+                key="details"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="wc-details">
+                  {card.anniversaryBonusNote && <p className="wc-bonus-note">{card.anniversaryBonusNote}</p>}
+                  {card.rotatingNote && <p className="wc-bonus-note">{card.rotatingNote}</p>}
+                  {card.notes?.length > 0 && (
+                    <ul className="notes-list">
+                      {card.notes.map((n, i) => (
+                        <li key={i}>{n}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
 
       <div className="wc-foot">
         <span>

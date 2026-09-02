@@ -89,6 +89,11 @@ Only cards flagged `rotating: true` (Freedom Flex, Discover it) expose editable 
 categories in the UI. Every other card's rates are fixed in code on purpose, so nothing
 incorrect can be entered by accident.
 
+A rotating pick adds `rotatingBonus` (4) **on top of** the card's standing rate rather than
+replacing it. On a plain category that produces the advertised 5%; on the Freedom Flex's
+dining or drugstores, already 3x, a quarterly pick makes it **7x**. Modelling that as a flat
+5x is the obvious mistake and it costs two points per dollar.
+
 Rates were verified against the issuers' own product pages in September 2026.
 
 ### How Quick Picks orders itself
@@ -108,12 +113,23 @@ even though its answer is the default.
 
 ### Card art
 
-`src/data/cardArt.js` holds a stylised face per card — colour, finish, accent stripe. These
-are deliberately generic, not the issuers' artwork.
+`public/cards/*.webp` holds a real photo per card, referenced from `src/data/cardArt.js`.
+Those are the issuers' copyrighted images — fine for a private dashboard, but don't advertise
+the site publicly. Every entry also keeps a stylised colour/finish fallback underneath, used
+for any card without a photo; delete an `image:` line to see it.
 
-To use real photos instead, drop files into `public/cards/` and add `image: 'cards/name.png'`
-to that card's entry; `CardArt` renders the photo and ignores the rest. Issuer card images are
-generally copyrighted, so keep those to a private deployment.
+To swap or add a photo, drop the original into `card images/` and re-run:
+
+```bash
+python3 scripts/prep_card_images.py
+```
+
+Source images arrive in mixed formats, sizes, and aspect ratios, often with a white margin
+baked around a card that already has rounded corners — which renders as an ugly border. The
+script trims that margin, cover-crops to the real 1.586 card ratio so every card matches,
+cuts the corners into the alpha channel, and writes WebP. Because the corners are transparent,
+the page uses `filter: drop-shadow` rather than `box-shadow`, so the shadow hugs the card
+instead of drawing a rectangle behind it. It needs Pillow (`pip install pillow`).
 
 **Merchant quirks** are the escape hatch for stores that ring up as the wrong category —
 the Which Card? sidebar lets you name a place, pin the category it actually codes as, and

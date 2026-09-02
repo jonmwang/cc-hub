@@ -7,6 +7,9 @@ export default function CardArt({ card, width = 120, className = '', showText = 
   const height = Math.round(width / 1.586)
   const uid = `art-${card.id}`
 
+  // Photos already carry rounded corners in their alpha channel, so they take a
+  // drop-shadow (which follows the alpha) rather than the box-shadow the SVG
+  // fallback uses — otherwise the shadow would square off the corners.
   if (art.image) {
     return (
       <img
@@ -14,8 +17,9 @@ export default function CardArt({ card, width = 120, className = '', showText = 
         alt=""
         width={width}
         height={height}
-        className={`card-art ${className}`}
-        style={{ borderRadius: Math.max(4, width * 0.055) }}
+        loading="lazy"
+        decoding="async"
+        className={`card-art card-art-photo ${className}`}
       />
     )
   }

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useStore } from '../store/StoreContext'
 import { CARD_BY_ID } from '../data/cards'
 import { getPeriodInfo, urgencyFor } from '../lib/periods'
+import CardArt from '../components/CardArt'
 import { OwnerChip, Segmented, cardTitle, money } from '../components/ui'
 
 export default function CreditTracker() {
@@ -127,6 +128,7 @@ function TrackerCard({ entry, person, state, actions, now, hideDone }) {
   return (
     <section className="tracker-card">
       <div className="tracker-head">
+        <CardArt card={card} width={56} showText={false} />
         <div className="tracker-title">
           <span className={`owner-dot ${person?.color === 'violet' ? 'partner' : 'me'}`} />
           {cardTitle(card)}

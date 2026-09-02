@@ -6,6 +6,7 @@ import { CARD_BY_ID } from '../data/cards'
 import { CURRENCIES, CURRENCY_LIST } from '../data/currencies'
 import { activeRotatingCategories, formatMultiplier, formatValue, rankCardsForCategory } from '../lib/ranking'
 import { currentQuarterLabel } from '../lib/periods'
+import CardArt from '../components/CardArt'
 import { OwnerChip, Panel, Segmented, Switch, cardTitle } from '../components/ui'
 
 // Categories a rotating card can plausibly be assigned in a given quarter.
@@ -344,6 +345,8 @@ function RankRow({ row, index, person, state }) {
       className={`rank-row ${ownerClass} ${isTop ? 'top' : ''}`}
     >
       <div className="rank-pos">{index + 1}</div>
+
+      <CardArt card={row.card} width={62} showText={false} className="rank-art" />
 
       <div className="rank-main">
         <div className="rank-name">
