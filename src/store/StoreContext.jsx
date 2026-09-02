@@ -86,6 +86,21 @@ function defaultState() {
   }
 }
 
+// Merchant rules are user-editable, so they're persisted wholesale — which
+// means a rule saved before a field existed never gains it. The Joymart logo
+// shipped after the rule did, so existing users kept seeing the fallback pin
+// forever. Backfill the parts of a seeded rule that aren't user-editable from
+// the matching default, keyed by id, while leaving real edits alone.
+function backfillMerchantRules(saved, defaults) {
+  if (!Array.isArray(saved)) return defaults
+  const defaultsById = Object.fromEntries(defaults.map((r) => [r.id, r]))
+  return saved.map((rule) => {
+    const base = defaultsById[rule.id]
+    if (!base) return rule // user-created rule, nothing to backfill from
+    return { ...rule, image: rule.image ?? base.image }
+  })
+}
+
 // Old saves keep working when the catalog gains fields.
 function migrate(saved) {
   const base = defaultState()
@@ -98,7 +113,7 @@ function migrate(saved) {
     valuations: { ...base.valuations, ...(saved.valuations ?? {}) },
     settings: { ...base.settings, ...(saved.settings ?? {}) },
     rotating: saved.rotating ?? {},
-    merchantRules: saved.merchantRules ?? base.merchantRules,
+    merchantRules: backfillMerchantRules(saved.merchantRules, base.merchantRules),
     creditValues: saved.creditValues ?? {},
     creditsUsed: saved.creditsUsed ?? {},
     creditsLog: saved.creditsLog ?? [],
