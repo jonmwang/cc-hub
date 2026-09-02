@@ -93,6 +93,10 @@ export function rankCardsForCategory(state, categoryId, opts = {}) {
   rows.sort((a, b) => {
     if (b.value !== a.value) return b.value - a.value
     if (b.multiplier !== a.multiplier) return b.multiplier - a.multiplier
+    // Genuine tie: prefer the more premium card. Annual fee is a decent proxy —
+    // premium cards carry higher credit lines, so they're the better card to put
+    // a big restaurant tab on even when the earn rate is identical.
+    if (b.card.annualFee !== a.card.annualFee) return b.card.annualFee - a.card.annualFee
     return a.card.name.localeCompare(b.card.name)
   })
 

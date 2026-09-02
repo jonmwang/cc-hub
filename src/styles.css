@@ -843,6 +843,60 @@ input[type='range'] {
   margin-top: 3px;
   line-height: 1.35;
 }
+.stat-sub {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+.ci-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.ci-worth {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--faint);
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+.credit-item.confirming {
+  background: var(--amber-soft);
+}
+.ci-confirm {
+  margin-top: 9px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid #f0dcbb;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+  max-width: 62ch;
+}
+.ci-confirm strong {
+  color: var(--amber);
+}
+.ci-confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.use-btn.closed {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+  color: var(--muted);
+}
+.use-btn.closed:hover:not(:disabled) {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
 .ci-useby.warning {
   color: var(--amber);
   font-weight: 600;

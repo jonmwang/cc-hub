@@ -20,21 +20,35 @@ export default function CreditTracker() {
 
   const summary = useMemo(() => {
     let open = 0
-    let openValue = 0
+    let openFace = 0
     let urgent = 0
     for (const w of entries) {
       const card = CARD_BY_ID[w.cardId]
       for (const c of card.credits) {
         const info = getPeriodInfo(c, w.openDate, state.creditsUsed[w.key]?.[c.id]?.usedAt, now)
         if (!info.active) continue
-        const used = isUsed(state, w.key, c.id, info)
-        if (used) continue
+        if (isUsed(state, w.key, c.id, info)) continue
         open += 1
-        openValue += state.creditValues[w.key]?.[c.id] ?? c.value
+        openFace += c.value
         if (urgencyFor(info) === 'critical') urgent += 1
       }
     }
-    return { open, openValue, urgent }
+
+    // Two running totals for the year, because they answer different questions:
+    // face value is what the issuer says you claimed (and what matches your
+    // statements), personal value is what it was actually worth to you.
+    const yearStart = new Date(now.getFullYear(), 0, 1).getTime()
+    const ownerKeys = new Set(entries.map((w) => w.key))
+    let redeemedFace = 0
+    let redeemedWorth = 0
+    for (const e of state.creditsLog) {
+      if (!ownerKeys.has(e.key)) continue
+      if (new Date(e.usedAt).getTime() < yearStart) continue
+      redeemedFace += e.face ?? e.value ?? 0
+      redeemedWorth += e.value ?? 0
+    }
+
+    return { open, openFace, urgent, redeemedFace, redeemedWorth }
   }, [entries, state, now])
 
   return (
@@ -56,18 +70,26 @@ export default function CreditTracker() {
 
       <div className="hero-stats" style={{ marginBottom: 24, marginTop: 0 }}>
         <div className="stat">
-          <div className="stat-value">{summary.open}</div>
-          <div className="stat-label">Credits still open</div>
+          <div className="stat-value">{money(summary.redeemedFace)}</div>
+          <div className="stat-label">Redeemed at face value</div>
+          <div className="stat-sub">{new Date().getFullYear()} · matches your statements</div>
         </div>
         <div className="stat">
-          <div className="stat-value">{money(summary.openValue)}</div>
+          <div className="stat-value">{money(summary.redeemedWorth)}</div>
+          <div className="stat-label">Worth to you</div>
+          <div className="stat-sub">Same credits, your own valuations</div>
+        </div>
+        <div className="stat">
+          <div className="stat-value">{money(summary.openFace)}</div>
           <div className="stat-label">Left on the table</div>
+          <div className="stat-sub">{summary.open} credits still open</div>
         </div>
         <div className="stat">
           <div className="stat-value" style={{ color: summary.urgent ? 'var(--red)' : 'var(--green)' }}>
             {summary.urgent}
           </div>
           <div className="stat-label">Expiring soon</div>
+          <div className="stat-sub">Past the use-by date, or near it</div>
         </div>
       </div>
 
@@ -119,13 +141,25 @@ function isUsed(state, key, creditId, info) {
   return rec.periodKey === info.key
 }
 
+// Closed windows (a past semiannual half) can be ticked retroactively, so their
+// used-state has to be read from the log rather than from `creditsUsed`, which
+// only ever describes the window that is current right now.
+function wasUsedInClosedWindow(state, key, creditId, info) {
+  return state.creditsLog.some((e) => e.key === key && e.creditId === creditId && e.periodKey === info.key)
+}
+
 function TrackerCard({ entry, person, state, actions, now, hideDone }) {
+  const [confirmId, setConfirmId] = useState(null)
   const card = CARD_BY_ID[entry.cardId]
   const needsOpenDate = card.credits.some((c) => c.period === 'anniversary') && !entry.openDate
 
   const rows = card.credits.map((c) => {
     const info = getPeriodInfo(c, entry.openDate, state.creditsUsed[entry.key]?.[c.id]?.usedAt, now)
-    return { credit: c, info, used: isUsed(state, entry.key, c.id, info) }
+    const used =
+      info.status === 'closed'
+        ? wasUsedInClosedWindow(state, entry.key, c.id, info)
+        : isUsed(state, entry.key, c.id, info)
+    return { credit: c, info, used }
   })
 
   const activeRows = rows.filter((r) => r.info.active)
@@ -174,13 +208,19 @@ function TrackerCard({ entry, person, state, actions, now, hideDone }) {
       )}
 
       {visible.map(({ credit, info, used }) => {
-        const value = state.creditValues[entry.key]?.[credit.id] ?? credit.value
+        const worth = state.creditValues[entry.key]?.[credit.id] ?? credit.value
         const urgency = urgencyFor(info)
-        const disabled = !info.active
+        // A shut window can still be ticked off — you may well have used the
+        // credit before this app existed — but only after confirming, so it
+        // can't happen by a stray click.
+        const closed = info.status === 'closed'
+        const disabled = !info.active && !closed
+        const confirming = confirmId === credit.id
+        const mark = () => actions.toggleCreditUsed(entry.key, credit.id, info.key, used, worth, credit.value)
 
         return (
           <div
-            className={`credit-item ${used ? 'used' : ''} ${disabled ? 'inactive' : ''}`}
+            className={`credit-item ${used ? 'used' : ''} ${disabled ? 'inactive' : ''} ${confirming ? 'confirming' : ''}`}
             key={credit.id}
           >
             <div className="ci-main">
@@ -199,16 +239,40 @@ function TrackerCard({ entry, person, state, actions, now, hideDone }) {
                 {info.status === 'closed' && <span className="chip">Window closed</span>}
                 {info.status === 'needs-date' && <span className="chip chip-rotating">Add open date</span>}
               </div>
+
+              {confirming && (
+                <div className="ci-confirm">
+                  <strong>This window closed on {fmtShort(info.end)}.</strong> Only mark it used if you
+                  actually claimed it before then — it counts toward this year's totals either way.
+                  <div className="ci-confirm-actions">
+                    <button className="btn btn-sm btn-primary" onClick={() => { mark(); setConfirmId(null) }}>
+                      Yes, I used it
+                    </button>
+                    <button className="btn btn-sm" onClick={() => setConfirmId(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="ci-amount">{money(value)}</div>
+            {/* Face value is what the issuer advertises and what shows on a
+                statement, so it leads. Your own valuation sits underneath only
+                when the two differ. */}
+            <div className="ci-amount">
+              {money(credit.value)}
+              {worth !== credit.value && <span className="ci-worth">{money(worth)} to you</span>}
+            </div>
 
             <button
-              className={`use-btn ${used ? 'done' : urgency}`}
+              className={`use-btn ${used ? 'done' : closed ? 'closed' : urgency}`}
               disabled={disabled}
-              onClick={() => actions.toggleCreditUsed(entry.key, credit.id, info.key, used, value)}
+              onClick={() => {
+                if (closed && !used) setConfirmId(confirming ? null : credit.id)
+                else mark()
+              }}
             >
-              {used ? '✓ Used' : disabled ? 'Unavailable' : 'Mark used'}
+              {used ? '✓ Used' : disabled ? 'Unavailable' : closed ? 'Mark used anyway' : 'Mark used'}
             </button>
           </div>
         )

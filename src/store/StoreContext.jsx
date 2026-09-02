@@ -215,7 +215,7 @@ export function StoreProvider({ children }) {
           return { ...s, creditValues: next }
         }),
 
-      toggleCreditUsed: (key, creditId, periodKey, currentlyUsed, value = 0) =>
+      toggleCreditUsed: (key, creditId, periodKey, currentlyUsed, value = 0, face = value) =>
         update((s) => {
           const forCard = { ...(s.creditsUsed[key] ?? {}) }
           const sameEntry = (e) => e.key === key && e.creditId === creditId && e.periodKey === periodKey
@@ -237,7 +237,13 @@ export function StoreProvider({ children }) {
           return {
             ...s,
             creditsUsed: { ...s.creditsUsed, [key]: forCard },
-            creditsLog: [...s.creditsLog.filter((e) => !sameEntry(e)), { key, creditId, periodKey, usedAt, value }],
+            creditsLog: [
+              ...s.creditsLog.filter((e) => !sameEntry(e)),
+              // Both figures are kept: `face` is what the issuer credited (and
+              // what reconciles against a statement), `value` is what it was
+              // worth to you.
+              { key, creditId, periodKey, usedAt, value, face },
+            ],
           }
         }),
 

@@ -23,6 +23,21 @@ is the usual casualty. Every window is therefore treated as ending early (3 days
 colours against. "Expiring soon" means past that date or close to it, never "the window shuts
 tomorrow". Spending inside the buffer is flagged as a danger zone rather than shown as fine.
 
+### Face value vs. what it's worth to you
+
+The tracker shows each credit at its **face value** — the number the issuer advertises and the
+one that reconciles against a statement. Your own valuation appears underneath only when it
+differs, so an entry reads `$500` with `$300 to you` rather than silently showing `$300` and
+leaving you wondering why it doesn't match Chase's site. Both totals are tracked for the year:
+each claim records `face` and `value`, and the tracker heads the page with both.
+
+### Closed windows can be ticked retroactively
+
+A semiannual window that has already shut still offers **Mark used anyway**, behind an inline
+confirmation naming the date it closed — you may well have claimed the credit before you
+started using this app. Because `creditsUsed` only ever describes the current window, the
+used-state of a closed window is read from the log instead.
+
 ### Home page numbers are actuals, not projections
 
 `creditsUsed` only ever holds the current window, so it cannot answer "how much have I clawed
@@ -121,6 +136,11 @@ Rates were verified against the issuers' own product pages in September 2026.
 
 It's a funnel, not a list. Steps are ordered by how often you actually buy the thing —
 groceries and food at the top, travel near the bottom. Then two rules tidy it up:
+
+Ranking ties break toward the **more premium card** (higher annual fee) before falling back to
+alphabetical. Identical earn rates are common — Sapphire Preferred and Reserve both pay 3x on
+dining — and the premium card is the better one to put a large tab on, since credit lines run
+higher. Without that rule the Reserve sorted below both Freedom cards.
 
 - **Adjacent steps that land on the same card merge into one line**, so you get
   "Streaming, Rideshare & Transit → Sapphire Preferred" instead of three near-identical rows.
