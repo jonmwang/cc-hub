@@ -15,6 +15,21 @@ unused this period.
 | **Fee Calculator** | Annual fee minus what the credits are actually worth *to you*, per card. |
 | **Credit Tracker** | Check off credits as you use them; windows reset themselves. |
 
+### Credit deadlines have a safety buffer
+
+Credits do not reliably post on the last day of their window — Amex's monthly dining credit
+is the usual casualty. Every window is therefore treated as ending early (3 days for monthly,
+5 for quarterly, 7 for longer), and that earlier **use by** date is what the app displays and
+colours against. "Expiring soon" means past that date or close to it, never "the window shuts
+tomorrow". Spending inside the buffer is flagged as a danger zone rather than shown as fine.
+
+### Home page numbers are actuals, not projections
+
+`creditsUsed` only ever holds the current window, so it cannot answer "how much have I clawed
+back this year" — a monthly credit used in March is invisible to it by April. An append-only
+`creditsLog` records each claim, and the home page reads **Recovered so far** from that.
+**Still claimable** counts only unused credits whose window is open right now.
+
 **Quick Picks and Which Card? read the same data.** Change a quarterly bonus category or a
 merchant quirk on Which Card?, and Quick Picks updates immediately — there is no second
 copy to keep in sync.
@@ -74,6 +89,12 @@ each hold their own copy.** Two ways to bridge that today, both on the
 - **Share link** — packs your entire setup into a URL. Whoever opens it gets a copy saved
   to their own browser. Great for handing over a ready-made starting point; it is a
   snapshot, not a live feed, so send a fresh link when you want to push an update.
+
+  The payload is field-shortened and deflated before base64 encoding, which takes a
+  realistic setup from ~2,400 characters down to ~750. That matters: messaging apps stop
+  auto-linking somewhere around 2,000 characters, and a link that breaks mid-string arrives
+  as a dead half-link with a stray `=...` after it. The link also applies when pasted into
+  an already-open tab, not just on a fresh load.
 - **Backup file** — download a JSON file, restore it on another machine.
 
 When you want genuine live sync, see `REMOTE_ADAPTER_NOTES.md`. The app was structured for

@@ -6,6 +6,22 @@
 const DAY = 86400000
 const FOUR_YEARS_MS = 4 * 365.25 * DAY
 
+// Credits do not reliably post on the last day of their window. Amex's monthly
+// dining credit is the classic example — spend on the 31st and it can land in
+// the next statement period, so the credit is simply lost. Every window is
+// therefore treated as ending this many days early, and that earlier date is
+// what the app shows and colours against.
+const SAFETY_DAYS = {
+  monthly: 3,
+  quarterly: 5,
+  semiannual: 7,
+  annual: 7,
+  anniversary: 7,
+  every4years: 30,
+}
+
+export const safetyDaysFor = (period) => SAFETY_DAYS[period] ?? 3
+
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 const fmt = (d) => `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`
@@ -24,14 +40,14 @@ export function getPeriodInfo(credit, openDate, usedAt, now = new Date()) {
     case 'monthly': {
       const start = new Date(y, now.getMonth(), 1)
       const end = new Date(y, now.getMonth() + 1, 0, 23, 59, 59)
-      return build(`${y}-${pad(now.getMonth() + 1)}`, start, end, now, `${MONTH_NAMES[now.getMonth()]} ${y}`)
+      return build(`${y}-${pad(now.getMonth() + 1)}`, start, end, now, `${MONTH_NAMES[now.getMonth()]} ${y}`, 'monthly')
     }
 
     case 'quarterly': {
       const q = Math.floor(now.getMonth() / 3)
       const start = new Date(y, q * 3, 1)
       const end = new Date(y, q * 3 + 3, 0, 23, 59, 59)
-      return build(`${y}-Q${q + 1}`, start, end, now, `Q${q + 1} ${y}`)
+      return build(`${y}-Q${q + 1}`, start, end, now, `Q${q + 1} ${y}`, 'quarterly')
     }
 
     case 'semiannual': {
@@ -59,13 +75,13 @@ export function getPeriodInfo(credit, openDate, usedAt, now = new Date()) {
 
       const start = new Date(y, half === 1 ? 0 : 6, 1)
       const end = new Date(y, half === 1 ? 6 : 12, 0, 23, 59, 59)
-      return build(`${y}-H${half}`, start, end, now, half === 1 ? `Jan–Jun ${y}` : `Jul–Dec ${y}`)
+      return build(`${y}-H${half}`, start, end, now, half === 1 ? `Jan–Jun ${y}` : `Jul–Dec ${y}`, 'semiannual')
     }
 
     case 'annual': {
       const start = new Date(y, 0, 1)
       const end = new Date(y, 12, 0, 23, 59, 59)
-      return build(`${y}`, start, end, now, `${y}`)
+      return build(`${y}`, start, end, now, `${y}`, 'annual')
     }
 
     case 'anniversary': {
@@ -87,7 +103,7 @@ export function getPeriodInfo(credit, openDate, usedAt, now = new Date()) {
       if (start > now) start = new Date(y - 1, open.getMonth(), open.getDate())
       const end = new Date(start.getFullYear() + 1, start.getMonth(), start.getDate() - 1, 23, 59, 59)
       return {
-        ...build(`anniv-${start.toISOString().slice(0, 10)}`, start, end, now, `Card year to ${fmtLong(end)}`),
+        ...build(`anniv-${start.toISOString().slice(0, 10)}`, start, end, now, `Card year to ${fmtLong(end)}`, 'anniversary'),
         window: `${fmtLong(start)} – ${fmtLong(end)}`,
       }
     }
@@ -139,15 +155,22 @@ export function getPeriodInfo(credit, openDate, usedAt, now = new Date()) {
   }
 }
 
-function build(key, start, end, now, label) {
+function build(key, start, end, now, label, period) {
   const total = end - start
   const elapsed = Math.min(Math.max(now - start, 0), total)
   const daysLeft = Math.max(0, Math.ceil((end - now) / DAY))
+
+  // The date you should actually have spent by, not the date the window shuts.
+  const safety = safetyDaysFor(period)
+  const useBy = new Date(end.getTime() - safety * DAY)
+  const daysToUse = Math.ceil((useBy - now) / DAY)
+
   return {
     key,
     start,
     end,
     now,
+    period,
     active: true,
     status: 'ok',
     label,
@@ -155,6 +178,13 @@ function build(key, start, end, now, label) {
     daysLeft,
     totalDays: Math.round(total / DAY),
     progress: total > 0 ? elapsed / total : 0,
+    safetyDays: safety,
+    useBy,
+    useByLabel: fmt(useBy),
+    daysToUse,
+    // True once you're inside the buffer: still technically claimable, but late
+    // enough that the credit may not post in this window.
+    inDangerZone: daysToUse <= 0,
   }
 }
 
@@ -165,27 +195,36 @@ function parseISO(iso) {
   return new Date(yy, mm - 1, dd)
 }
 
-// Green while there's plenty of runway, amber past halfway, red at the end.
-// Driven by how far through the window you are rather than raw days, so a
-// monthly credit isn't screaming on day 10 just because "21 days left" sounds
-// short. Absolute day counts only take over on long windows, where a fixed
-// deadline matters more than the fraction elapsed.
+// Colour is driven by days remaining until the SAFE deadline, not the raw
+// window end — so a monthly credit turns red with about a week of real time
+// left, not on the 29th when spending may no longer post in time.
+//
+// Thresholds scale with the window so one rule covers monthly through annual:
+//   critical  <= max(4 days, 12% of the window)
+//   warning   <= max(12 days, 28% of the window)
+//
+// For a 30-day month that's red from ~6 days out and amber from ~14. For a
+// calendar year, red from ~6 weeks out and amber from ~14.
 export function urgencyFor(info) {
-  const { progress = 0, daysLeft = 0, totalDays = 0 } = info ?? {}
+  const { daysToUse, daysLeft = 0, totalDays = 0 } = info ?? {}
   if (daysLeft === Infinity) return 'fresh'
 
-  let level = 'fresh'
-  if (progress >= 0.9) level = 'critical'
-  else if (progress >= 0.72) level = 'warning'
-  else if (progress >= 0.45) level = 'mid'
+  const remaining = daysToUse ?? daysLeft
+  if (remaining <= 0) return 'critical' // inside the buffer, or past it
 
-  if (totalDays > 90) {
-    if (daysLeft <= 14) level = 'critical'
-    else if (daysLeft <= 30 && level === 'fresh') level = 'mid'
-  }
+  const criticalAt = Math.max(4, totalDays * 0.12)
+  const warningAt = Math.max(12, totalDays * 0.28)
 
-  return level
+  if (remaining <= criticalAt) return 'critical'
+  if (remaining <= warningAt) return 'warning'
+  if (remaining <= totalDays * 0.55) return 'mid'
+  return 'fresh'
 }
+
+// One definition, used by both the tracker and the home page, so "expiring
+// soon" means the same thing everywhere.
+export const EXPIRING_SOON_LABEL = 'Past its safe-to-use date, or close to it'
+export const isExpiringSoon = (info) => urgencyFor(info) === 'critical'
 
 export function currentQuarterKey(now = new Date()) {
   return `${now.getFullYear()}-Q${Math.floor(now.getMonth() / 3) + 1}`

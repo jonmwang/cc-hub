@@ -43,8 +43,14 @@ export default function CreditTracker() {
         <h1>Credit tracker</h1>
         <p>
           Mark a credit the moment you use it. Each one resets on its own schedule — monthly, quarterly,
-          per half-year, or on the card's anniversary — so nothing needs clearing by hand. Buttons shift
-          from green to red as the window runs down.
+          per half-year, or on the card's anniversary — so nothing needs clearing by hand.
+        </p>
+        <p className="hint" style={{ maxWidth: '68ch' }}>
+          Every credit shows a <strong>use by</strong> date that sits a few days before the window
+          actually shuts — 3 days for monthly credits, 5 for quarterly, 7 for longer ones. Spending on
+          the true last day often fails to post in time (Amex's monthly dining credit is the usual
+          culprit), so that date is the one worth treating as the deadline. <strong>Expiring soon</strong>{' '}
+          counts anything already past its use-by date or close to it.
         </p>
       </div>
 
@@ -100,6 +106,9 @@ export default function CreditTracker() {
     </div>
   )
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const fmtShort = (d) => (d ? `${MONTHS[d.getMonth()]} ${d.getDate()}` : '')
 
 // A credit counts as used only if it was checked off inside the window that is
 // current right now — that is what makes the reset automatic.
@@ -179,8 +188,12 @@ function TrackerCard({ entry, person, state, actions, now, hideDone }) {
               <div className="ci-meta">
                 <span>{info.label}</span>
                 {info.window && info.window !== '—' && <span>· {info.window}</span>}
-                {info.active && !used && info.daysLeft !== Infinity && (
-                  <span>· {info.daysLeft} {info.daysLeft === 1 ? 'day' : 'days'} left</span>
+                {info.active && !used && info.useByLabel && (
+                  <span className={`ci-useby ${urgency}`}>
+                    {info.inDangerZone
+                      ? `· spend today may not post — window shuts ${fmtShort(info.end)}`
+                      : `· use by ${info.useByLabel} · ${info.daysToUse} ${info.daysToUse === 1 ? 'day' : 'days'}`}
+                  </span>
                 )}
                 {info.status === 'upcoming' && <span className="chip">Opens later this year</span>}
                 {info.status === 'closed' && <span className="chip">Window closed</span>}
@@ -193,7 +206,7 @@ function TrackerCard({ entry, person, state, actions, now, hideDone }) {
             <button
               className={`use-btn ${used ? 'done' : urgency}`}
               disabled={disabled}
-              onClick={() => actions.toggleCreditUsed(entry.key, credit.id, info.key, used)}
+              onClick={() => actions.toggleCreditUsed(entry.key, credit.id, info.key, used, value)}
             >
               {used ? '✓ Used' : disabled ? 'Unavailable' : 'Mark used'}
             </button>

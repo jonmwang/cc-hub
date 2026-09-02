@@ -14,8 +14,8 @@ export default function Settings() {
 
   const people = useMemo(() => Object.fromEntries(state.people.map((p) => [p.id, p])), [state.people])
 
-  const makeLink = () => {
-    const url = buildShareUrl(state)
+  const makeLink = async () => {
+    const url = await buildShareUrl(state)
     setShareUrl(url)
     setCopied(false)
   }
@@ -86,9 +86,16 @@ export default function Settings() {
                 </button>
               </div>
               <p className="hint">
-                The link carries your whole setup inside it. Whoever opens it gets a copy saved to their
-                own browser — their later edits stay on their device, and yours stay on yours. Send a
-                fresh link whenever you want to push an update across.
+                {shareUrl.length} characters — {shareUrl.length < 1500 ? 'short enough to paste into any messaging app.' : 'long enough that some apps may cut it; send the backup file instead.'}
+              </p>
+              <p className="hint">
+                The link carries your whole setup inside it, compressed. Whoever opens it gets a copy
+                saved to their own browser — their later edits stay on their device, and yours stay on
+                yours. Send a fresh link whenever you want to push an update across.
+              </p>
+              <p className="hint">
+                Paste it as a plain link. If your messaging app breaks it across two lines, send it in a
+                message on its own, or use the backup file below.
               </p>
             </>
           )}

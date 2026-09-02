@@ -63,6 +63,11 @@ function defaultState() {
     merchantRules: DEFAULT_MERCHANT_RULES,
     creditValues: {}, // walletKey -> creditId -> number
     creditsUsed: {}, // walletKey -> creditId -> { periodKey, usedAt }
+    // Append-only record of every credit actually claimed. `creditsUsed` only
+    // ever holds the CURRENT window, so without this there is no way to answer
+    // "how much have I clawed back this year" — a monthly credit used in March
+    // is invisible by April.
+    creditsLog: [], // { key, creditId, periodKey, usedAt, value }
   }
 }
 
@@ -81,6 +86,7 @@ function migrate(saved) {
     merchantRules: saved.merchantRules ?? base.merchantRules,
     creditValues: saved.creditValues ?? {},
     creditsUsed: saved.creditsUsed ?? {},
+    creditsLog: saved.creditsLog ?? [],
   }
 }
 
@@ -93,7 +99,7 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const shared = consumeSharedStateFromUrl()
+      const shared = await consumeSharedStateFromUrl()
       const stored = await adapter.load()
       if (cancelled) return
       if (shared) {
@@ -116,6 +122,22 @@ export function StoreProvider({ children }) {
   }, [state, adapter])
 
   useEffect(() => adapter.subscribe((next) => setState(migrate(next))), [adapter])
+
+  // Pasting a share link while the app is already open only changes the hash —
+  // no reload, so the startup path above never sees it and the link silently
+  // does nothing. Catch it here too, which is the common case when someone
+  // sends an updated link to a partner who already has the site open.
+  useEffect(() => {
+    const onHashChange = async () => {
+      if (!window.location.hash.includes('s=') && !window.location.hash.includes('share=')) return
+      const shared = await consumeSharedStateFromUrl()
+      if (!shared) return
+      setState(migrate(shared))
+      setSharedNotice(true)
+    }
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
   const update = useCallback((fn) => setState((s) => (s ? fn(s) : s)), [])
 
@@ -193,19 +215,38 @@ export function StoreProvider({ children }) {
           return { ...s, creditValues: next }
         }),
 
-      toggleCreditUsed: (key, creditId, periodKey, currentlyUsed) =>
+      toggleCreditUsed: (key, creditId, periodKey, currentlyUsed, value = 0) =>
         update((s) => {
           const forCard = { ...(s.creditsUsed[key] ?? {}) }
-          if (currentlyUsed) delete forCard[creditId]
-          else forCard[creditId] = { periodKey, usedAt: new Date().toISOString() }
-          return { ...s, creditsUsed: { ...s.creditsUsed, [key]: forCard } }
+          const sameEntry = (e) => e.key === key && e.creditId === creditId && e.periodKey === periodKey
+
+          if (currentlyUsed) {
+            delete forCard[creditId]
+            // Un-ticking is a correction, so drop the matching log entry too —
+            // otherwise the running total would keep counting a credit you
+            // decided you never actually claimed.
+            return {
+              ...s,
+              creditsUsed: { ...s.creditsUsed, [key]: forCard },
+              creditsLog: s.creditsLog.filter((e) => !sameEntry(e)),
+            }
+          }
+
+          const usedAt = new Date().toISOString()
+          forCard[creditId] = { periodKey, usedAt }
+          return {
+            ...s,
+            creditsUsed: { ...s.creditsUsed, [key]: forCard },
+            creditsLog: [...s.creditsLog.filter((e) => !sameEntry(e)), { key, creditId, periodKey, usedAt, value }],
+          }
         }),
 
       replaceState: (next) => setState(migrate(next)),
 
       resetAll: () => setState(defaultState()),
 
-      clearWallet: () => update((s) => ({ ...s, wallet: [], rotating: {}, creditValues: {}, creditsUsed: {} })),
+      clearWallet: () =>
+        update((s) => ({ ...s, wallet: [], rotating: {}, creditValues: {}, creditsUsed: {}, creditsLog: [] })),
     }),
     [update],
   )

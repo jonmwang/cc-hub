@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useStore } from '../store/StoreContext'
 import { CARD_BY_ID } from '../data/cards'
-import { occurrencesPerYear, currentQuarterLabel } from '../lib/periods'
-import { getPeriodInfo, urgencyFor } from '../lib/periods'
+import { currentQuarterLabel, getPeriodInfo, isExpiringSoon } from '../lib/periods'
 import CardArt from '../components/CardArt'
 import { money } from '../components/ui'
 
@@ -16,26 +15,37 @@ export default function Home() {
 
   const summary = useMemo(() => {
     let fees = 0
-    let credits = 0
+    let openNow = 0 // unused, window currently open — money genuinely still on the table
     let expiringSoon = 0
 
     for (const w of state.wallet) {
       const card = CARD_BY_ID[w.cardId]
       if (!card) continue
       fees += card.annualFee
+
       for (const c of card.credits) {
         const value = state.creditValues[w.key]?.[c.id] ?? c.value
-        credits += value * occurrencesPerYear(c.period)
-
         const info = getPeriodInfo(c, w.openDate, state.creditsUsed[w.key]?.[c.id]?.usedAt, now)
         if (!info.active) continue
+
         const rec = state.creditsUsed[w.key]?.[c.id]
         const used = info.key === 'every4years' ? info.status !== 'available' : rec?.periodKey === info.key
-        if (!used && urgencyFor(info) === 'critical') expiringSoon += 1
+        if (used) continue
+
+        openNow += value
+        if (isExpiringSoon(info)) expiringSoon += 1
       }
     }
 
-    return { fees, credits, expiringSoon, net: credits - fees, count: state.wallet.length }
+    // What you have actually clawed back this calendar year, from the usage log
+    // rather than from the catalogue — this is the number that answers "am I
+    // ahead", and it only counts credits you really ticked off.
+    const yearStart = new Date(now.getFullYear(), 0, 1).getTime()
+    const recovered = state.creditsLog
+      .filter((e) => new Date(e.usedAt).getTime() >= yearStart)
+      .reduce((sum, e) => sum + (e.value ?? 0), 0)
+
+    return { fees, openNow, expiringSoon, recovered, net: recovered - fees, count: state.wallet.length }
   }, [state, now])
 
   const byPerson = state.people
@@ -75,18 +85,24 @@ export default function Home() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
       >
-        <HomeStat label="Annual fees" value={money(summary.fees)} />
-        <HomeStat label="Credits available" value={money(summary.credits)} />
+        <HomeStat label="Annual fees" value={money(summary.fees)} note={`${new Date().getFullYear()} total`} />
         <HomeStat
-          label={summary.net >= 0 ? 'Ahead by' : 'Behind by'}
-          value={money(Math.abs(summary.net))}
-          tone={summary.net >= 0 ? 'good' : 'bad'}
+          label="Recovered so far"
+          value={money(summary.recovered)}
+          note="Credits you've ticked off"
+          to="/credits"
         />
         <HomeStat
-          label="Expiring soon"
-          value={String(summary.expiringSoon)}
-          tone={summary.expiringSoon > 0 ? 'bad' : 'good'}
+          label="Still claimable"
+          value={money(summary.openNow)}
+          note="Unused, window open now"
           to="/credits"
+        />
+        <HomeStat
+          label={summary.net >= 0 ? 'Ahead by' : 'Still to recover'}
+          value={money(Math.abs(summary.net))}
+          tone={summary.net >= 0 ? 'good' : undefined}
+          note={summary.net >= 0 ? 'Fees fully covered' : `${pct(summary.recovered, summary.fees)}% of fees back`}
         />
       </motion.section>
 
@@ -183,11 +199,14 @@ function CountUp({ to, duration = 1100 }) {
   )
 }
 
-function HomeStat({ label, value, tone, to }) {
+const pct = (part, whole) => (whole > 0 ? Math.round((part / whole) * 100) : 0)
+
+function HomeStat({ label, value, tone, to, note }) {
   const body = (
     <>
       <div className={`home-stat-value ${tone ? `tone-${tone}` : ''}`}>{value}</div>
       <div className="home-stat-label">{label}</div>
+      {note && <div className="home-stat-note">{note}</div>}
     </>
   )
   return to ? (
