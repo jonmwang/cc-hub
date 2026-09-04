@@ -14,6 +14,7 @@ import {
 import { isConfigured } from '../lib/sync/firebaseConfig'
 import { mergeStates } from '../lib/sync/merge'
 import { generateKeyString, randomId } from '../lib/sync/crypto'
+import { buildSiriSnapshot } from '../lib/siriExport'
 import { currentQuarterKey } from '../lib/periods'
 
 const StoreContext = createContext(null)
@@ -147,6 +148,7 @@ export function StoreProvider({ children }) {
       const remote = new FirestoreAdapter({
         ...syncCreds,
         onLocalMerge: (incoming) => mergeStates(stateRef.current, incoming),
+        buildAnswers: buildSiriSnapshot,
       })
       setAdapter(remote)
       setLocalAdapter(remote)

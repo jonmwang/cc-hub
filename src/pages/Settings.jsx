@@ -3,6 +3,7 @@ import { useStore } from '../store/StoreContext'
 import { CARDS, CARD_BY_ID } from '../data/cards'
 import { buildShareUrl, downloadBackup } from '../lib/storage'
 import { BUILD_ID, reloadToLatest } from '../lib/version'
+import { downloadSiriSnapshot } from '../lib/siriExport'
 import { Panel, cardTitle, money } from '../components/ui'
 
 export default function Settings() {
@@ -107,6 +108,21 @@ export default function Settings() {
               partner a ready-made copy.
             </p>
           )}
+        </Panel>
+
+        <Panel title="Ask Siri">
+          <button className="btn btn-block" onClick={() => downloadSiriSnapshot(state)}>
+            Export for Siri
+          </button>
+          <p className="hint">
+            Saves <code>answers.tsv</code> — a spoken-answer snapshot of Quick Picks. Drop it in
+            iCloud Drive under a folder named <strong>CC Hub</strong> and every Mac in the household
+            picks it up. Then ask <em>"Hey Siri, what card should I use"</em>.
+          </p>
+          <p className="hint">
+            Re-export when your cards or quarterly categories change — it's a snapshot, not a live
+            feed. Setup steps are in the <code>cc-hub-siri</code> repo.
+          </p>
         </Panel>
 
         <Panel title="Backup & restore">

@@ -11,10 +11,14 @@ import { mergeStates } from './merge'
 const WRITE_DEBOUNCE_MS = 800
 
 export class FirestoreAdapter {
-  constructor({ householdId, keyString, onLocalMerge }) {
+  constructor({ householdId, keyString, onLocalMerge, buildAnswers }) {
     this.householdId = householdId
     this.keyString = keyString
     this.onLocalMerge = onLocalMerge
+    // Optional: produces the small plaintext answer sheet the Siri shortcut
+    // reads. Kept separate from the encrypted document on purpose — see
+    // publishAnswers below for exactly what it does and does not contain.
+    this.buildAnswers = buildAnswers
     this.key = null
     this.status = 'connecting'
     this.lastSeen = null
@@ -24,6 +28,7 @@ export class FirestoreAdapter {
     const app = initializeApp(FIREBASE_CONFIG, `cc-hub-${householdId}`)
     this.db = getFirestore(app)
     this.ref = doc(this.db, 'households', householdId)
+    this.answersRef = doc(this.db, 'answers', householdId)
   }
 
   async ready() {
@@ -70,8 +75,45 @@ export class FirestoreAdapter {
       await setDoc(this.ref, { ...payload, updatedAt: Date.now(), v: 1 })
       this.lastSeen = state
       this.status = 'synced'
+      await this.publishAnswers(state)
     } catch {
       this.status = 'error'
+    }
+  }
+
+  /**
+   * Publishes the spoken answer sheet in PLAINTEXT, so a Siri shortcut can read
+   * it with nothing but curl and awk.
+   *
+   * This is a deliberate, scoped exception to the end-to-end encryption. Stock
+   * macOS cannot decrypt AES-GCM — LibreSSL lists the cipher but fails at
+   * runtime, and /usr/bin/python3 has no crypto module — so a shell script
+   * physically cannot read the encrypted document.
+   *
+   * What goes in: thirteen lines of "category -> card name", e.g.
+   * "movies -> Capital One Savor". Enough to answer out loud, nothing more.
+   *
+   * What stays encrypted: point valuations, annual fees, credit values, the
+   * entire usage log and history, household names, and card open dates.
+   *
+   * Stored base64-encoded so the shell script can pull it out of the REST JSON
+   * with sed and decode it with the stock base64 tool, without tripping over
+   * escaped newlines and tabs.
+   */
+  async publishAnswers(state) {
+    if (!this.buildAnswers) return
+    try {
+      const tsv = this.buildAnswers(state)
+      if (!tsv) return
+      const bytes = new TextEncoder().encode(tsv)
+      let binary = ''
+      bytes.forEach((b) => {
+        binary += String.fromCharCode(b)
+      })
+      await setDoc(this.answersRef, { b64: btoa(binary), updatedAt: Date.now(), v: 1 })
+    } catch {
+      // Never let the answer sheet take sync down with it — the encrypted
+      // document is the source of truth and has already been written.
     }
   }
 

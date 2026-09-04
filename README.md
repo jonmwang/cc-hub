@@ -134,6 +134,29 @@ last-write-wins, where a conflict costs you a preference rather than a record.
 Until Firebase is configured the app is local-only and behaves exactly as before —
 `getAdapter()` simply never swaps in the cloud adapter.
 
+## Ask Siri
+
+A companion repo, [cc-hub-siri](https://github.com/jonmwang/cc-hub-siri), answers
+"what card should I use for X" out loud on a Mac.
+
+When live sync is on, the app publishes a small **answer sheet** to a separate
+`answers/{householdId}` document — thirteen lines of "category → card name",
+base64-encoded. A shell script reads it with nothing but `curl`, `sed` and `awk`.
+
+That sheet is plaintext, unlike everything else, and the reason is a hard
+constraint rather than a shortcut: **stock macOS cannot decrypt AES-GCM.**
+LibreSSL advertises the cipher but fails at runtime, and `/usr/bin/python3` ships
+without a crypto module — so a shell script physically cannot read the encrypted
+document, and installing crypto tooling on someone else's Mac defeats the point.
+
+Scope of the exception: card names and category names only. Valuations, fees,
+credit values, the usage log, member names and open dates all stay encrypted. The
+document id is 128 random bits and listing is denied, so it cannot be enumerated
+or crawled — but Google could read it, which the encrypted document prevents.
+
+`Settings → Export for Siri` writes the identical sheet to a file instead, for
+anyone who'd rather publish nothing.
+
 ## Cache busting
 
 GitHub Pages serves `index.html` with `cache-control: max-age=600`. Asset filenames are

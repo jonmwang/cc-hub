@@ -103,6 +103,23 @@ service cloud.firestore {
       // needs to delete from the app — do it from the Firebase console.
       allow delete: if false;
     }
+
+    // The spoken answer sheet for the Siri shortcut. PLAINTEXT and deliberately
+    // so: stock macOS cannot decrypt AES-GCM (LibreSSL lists the cipher but
+    // fails at runtime, and /usr/bin/python3 has no crypto module), so a shell
+    // script physically cannot read the encrypted document above.
+    //
+    // It holds only "category -> card name" lines. Valuations, fees, credit
+    // values, usage history and names all stay in the encrypted document.
+    match /answers/{householdId} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if
+        request.resource.data.keys().hasOnly(['b64', 'updatedAt', 'v'])
+        && request.resource.data.b64 is string
+        && request.resource.data.b64.size() < 20000;
+      allow delete: if false;
+    }
   }
 }
 ```
