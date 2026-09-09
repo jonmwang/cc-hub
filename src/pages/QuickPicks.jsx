@@ -3,9 +3,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '../store/StoreContext'
 import { CATEGORY_BY_ID } from '../data/categories'
 import { formatMultiplier, rankCardsForCategory } from '../lib/ranking'
+import { creditPlanFor } from '../lib/credits'
+import { CREDIT_MERCHANTS } from '../data/merchants'
 import { currentQuarterLabel } from '../lib/periods'
 import CardArt from '../components/CardArt'
-import { Segmented, cardTitle } from '../components/ui'
+import { Segmented, cardTitle, possessive } from '../components/ui'
 
 // A flow chart, not a catalogue.
 //
@@ -73,6 +75,31 @@ export default function QuickPicks() {
     [state, scoped],
   )
 
+  // Places where an unclaimed credit outranks the best earn rate. These sit up
+  // top with the other exceptions, because getting them wrong costs real money
+  // rather than a few points.
+  const creditRows = useMemo(
+    () =>
+      CREDIT_MERCHANTS.map((m) => {
+        const plan = creditPlanFor(state, m.id, scoped)
+        if (!plan || !plan.hasAnyCredits) return null
+        const winner = plan.unclaimed[0]
+        const ranked = winner
+          ? [{ ...plan.ranked.find((r) => r.key === winner.walletKey), key: winner.walletKey, card: winner.card, multiplier: winner.multiplier, ownerId: winner.ownerId }, ...plan.ranked]
+          : plan.ranked
+        if (!ranked[0]) return null
+        return {
+          id: `credit-${m.id}`,
+          icon: m.icon,
+          label: m.name,
+          plan,
+          ranked,
+          steps: [],
+        }
+      }).filter(Boolean),
+    [state, scoped],
+  )
+
   const flowRows = useMemo(() => {
     const catchAllRanked = rankCardsForCategory(state, 'everything_else', scoped)
     const catchAll = catchAllRanked[0]
@@ -113,7 +140,7 @@ export default function QuickPicks() {
   }, [state, scoped])
 
   const hasCards = state.wallet.some((w) => owner === 'all' || w.ownerId === owner)
-  const allRows = [...merchantRows, ...flowRows]
+  const allRows = [...merchantRows, ...creditRows, ...flowRows]
 
   return (
     <div className="page qp-page">
@@ -167,6 +194,7 @@ export default function QuickPicks() {
 }
 
 function FlowRow({ row, index, last, open, onToggle, state }) {
+  const plan = row.plan
   const winner = row.ranked[0]
   const card = winner.card
   const merged = row.steps.length > 1
@@ -204,6 +232,14 @@ function FlowRow({ row, index, last, open, onToggle, state }) {
 
         <span className="qp-answer">
           <span className="qp-card-name">{cardTitle(card)}</span>
+          {plan?.unclaimed?.length > 0 && (
+            <span className="chip chip-credit">
+              {ownerName(state, plan.unclaimed[0].ownerId)
+                ? `${capitalise(possessive(ownerName(state, plan.unclaimed[0].ownerId)))} · $${plan.unclaimed[0].value} credit left`
+                : `$${plan.unclaimed[0].value} credit left`}
+            </span>
+          )}
+          {plan?.allUsed && <span className="chip chip-cash">Credits used</span>}
           {winner.isRotating && <span className="chip chip-rotating">This quarter</span>}
         </span>
 
@@ -235,6 +271,53 @@ function FlowRow({ row, index, last, open, onToggle, state }) {
                   {row.note && <p className="qp-detail-note">{row.note}</p>}
                 </div>
               </div>
+
+              {plan && (
+                <div className="qp-credit-plan">
+                  {plan.unclaimed.length > 0 ? (
+                    <>
+                      <div className="qp-credit-why">
+                        Pay with{' '}
+                        <strong>
+                          {ownerName(state, plan.unclaimed[0].ownerId)
+                            ? `${possessive(ownerName(state, plan.unclaimed[0].ownerId))} ${cardTitle(plan.unclaimed[0].card)}`
+                            : cardTitle(plan.unclaimed[0].card)}
+                        </strong>{' '}
+                        to capture its{' '}
+                        <strong>${plan.unclaimed[0].value}</strong> {plan.merchant.name} credit
+                        {plan.unclaimed[0].info?.useByLabel ? ` — use by ${plan.unclaimed[0].info.useByLabel}` : ''}.
+                        A credit is real money; the earn-rate gap is pennies.
+                      </div>
+                      {plan.unclaimed.length > 1 && (
+                        <div className="qp-credit-more">
+                          Then{' '}
+                          <strong>
+                            {ownerName(state, plan.unclaimed[1].ownerId)
+                              ? `${possessive(ownerName(state, plan.unclaimed[1].ownerId))} ${cardTitle(plan.unclaimed[1].card)}`
+                              : cardTitle(plan.unclaimed[1].card)}
+                          </strong>{' '}
+                          has ${plan.unclaimed[1].value} left too.
+                        </div>
+                      )}
+                      {plan.earnWinner && plan.earnWinner.card.id !== plan.unclaimed[0].card.id && (
+                        <div className="qp-credit-after">
+                          Once the credits are gone this period, <strong>{cardTitle(plan.earnWinner.card)}</strong>{' '}
+                          earns more ({formatMultiplier(plan.earnWinner.multiplier)} vs{' '}
+                          {formatMultiplier(plan.unclaimed[0].multiplier)})
+                          {plan.crossoverSpend
+                            ? ` — and it already wins on a single order above about $${plan.crossoverSpend.toLocaleString()}.`
+                            : '.'}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="qp-credit-why">
+                      {plan.merchant.name} credits are all used for this period, so this is purely
+                      about earn rate now.
+                    </div>
+                  )}
+                </div>
+              )}
 
               {row.steps.length > 0 && (
                 <dl className="qp-covers">
@@ -273,6 +356,16 @@ function FlowRow({ row, index, last, open, onToggle, state }) {
       </AnimatePresence>
     </motion.div>
   )
+}
+
+// Both people can hold the same card, and a credit belongs to exactly one of
+// them — so a credit answer that doesn't name the holder can send you to the
+// wrong physical card.
+const capitalise = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s)
+
+function ownerName(state, ownerId) {
+  if (state.people.length < 2) return null
+  return state.people.find((p) => p.id === ownerId)?.name ?? null
 }
 
 // "Groceries" / "Flights & Hotels" / "Rideshare, Transit & Flights"

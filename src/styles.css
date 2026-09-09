@@ -1588,6 +1588,42 @@ input[type='range'] {
   }
 }
 
+.chip-credit {
+  background: var(--green-soft);
+  color: var(--green);
+  border-color: #b9e4d0;
+}
+
+.qp-credit-plan {
+  border-top: 1px solid var(--line);
+  padding-top: 11px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.qp-credit-why {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--green-soft);
+  border: 1px solid #b9e4d0;
+}
+.qp-credit-more,
+.qp-credit-after {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.qp-credit-after {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+}
+
 /* Merchant quirks editor — lives on the expert page, feeds Quick Picks */
 .quirk {
   border: 1px solid var(--line);

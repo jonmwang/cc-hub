@@ -8,6 +8,10 @@
 //            `anniversary` resets on the card's own open-date anniversary,
 //            which is why cards using it prompt for an open date.
 // `rotating: true` unlocks quarterly multiplier editing for that card ONLY.
+// `merchant` on a credit means it can ONLY be captured by spending at that
+//            merchant. That inverts the usual advice: the best earn rate stops
+//            deciding, because an unclaimed credit is worth far more than the
+//            multiplier gap on any realistic basket.
 //
 // Verified against the issuers' own product pages in September 2026. Issuers
 // change these constantly — Amex Platinum most of all — so re-check before
@@ -95,6 +99,7 @@ export const CARDS = [
         label: 'DoorDash non-restaurant promo',
         value: 10,
         period: 'monthly',
+        merchant: 'doordash',
         note: 'Requires DashPass, which the card includes through 2027.',
       },
       {
@@ -126,14 +131,18 @@ export const CARDS = [
     },
     credits: [
       { id: 'csr_travel', label: 'Annual travel credit', value: 300, period: 'anniversary', note: 'Applies automatically to the first $300 of travel, transit included.' },
-      { id: 'csr_edit', label: 'The Edit hotel credit', value: 500, period: 'annual', note: 'Up to $250 per booking, $500 per calendar year. 2+ night stays.' },
+      // Two distinct $250 statement credits per calendar year, not one $500
+      // pot: each is claimed by its own qualifying booking, so they get their
+      // own rows and tick off independently.
+      { id: 'csr_edit_1', label: 'The Edit hotel credit — 1st booking', value: 250, period: 'annual', note: 'Booked through The Edit. Minimum two consecutive nights.' },
+      { id: 'csr_edit_2', label: 'The Edit hotel credit — 2nd booking', value: 250, period: 'annual', note: 'Booked through The Edit. Minimum two consecutive nights.' },
       { id: 'csr_chasehotels', label: 'Select Chase Travel hotels credit', value: 250, period: 'annual', note: 'Two-night minimum. Runs through 12/31/26.' },
       { id: 'csr_dining_h1', label: 'Exclusive Tables dining — Jan–Jun', value: 150, period: 'semiannual', half: 1, note: 'Through OpenTable Sapphire Exclusive Tables.' },
       { id: 'csr_dining_h2', label: 'Exclusive Tables dining — Jul–Dec', value: 150, period: 'semiannual', half: 2, note: 'Through OpenTable Sapphire Exclusive Tables.' },
       { id: 'csr_stubhub_h1', label: 'StubHub / viagogo — Jan–Jun', value: 150, period: 'semiannual', half: 1 },
       { id: 'csr_stubhub_h2', label: 'StubHub / viagogo — Jul–Dec', value: 150, period: 'semiannual', half: 2 },
-      { id: 'csr_doordash', label: 'DoorDash promos', value: 25, period: 'monthly', note: '$5 restaurant plus two $10 non-restaurant credits each month.' },
-      { id: 'csr_lyft', label: 'Lyft credit', value: 10, period: 'monthly', note: 'In-app credit. Runs through 9/30/27.' },
+      { id: 'csr_doordash', label: 'DoorDash promos', value: 25, period: 'monthly', merchant: 'doordash', note: '$5 restaurant plus two $10 non-restaurant credits each month.' },
+      { id: 'csr_lyft', label: 'Lyft credit', value: 10, period: 'monthly', merchant: 'lyft', note: 'In-app credit. Runs through 9/30/27.' },
       { id: 'csr_peloton', label: 'Peloton credit', value: 10, period: 'monthly', note: 'Through 12/31/27.' },
       { id: 'csr_dashpass', label: 'DashPass membership', value: 120, period: 'annual', note: 'Complimentary for 12 months; activate by 12/31/27.' },
       { id: 'csr_apple', label: 'Apple TV+ and Apple Music', value: 288, period: 'annual', note: 'Complimentary through 6/22/27. Worth $0 to you if you would not otherwise pay.' },
@@ -164,7 +173,7 @@ export const CARDS = [
       travel_other: 2,
     },
     credits: [
-      { id: 'gold_uber', label: 'Uber Cash', value: 10, period: 'monthly', note: 'Uber rides or Uber Eats. Add the card to your Uber account first.' },
+      { id: 'gold_uber', label: 'Uber Cash', value: 10, period: 'monthly', merchant: 'uber', note: 'Uber rides or Uber Eats. Add the card to your Uber account first.' },
       { id: 'gold_dining', label: 'Dining credit', value: 10, period: 'monthly', note: 'Grubhub, Cheesecake Factory, Goldbelly, Wine.com, Five Guys.' },
       { id: 'gold_dunkin', label: 'Dunkin’ credit', value: 7, period: 'monthly', note: 'Top up the Dunkin’ app to bank the value for later.' },
       { id: 'gold_resy_h1', label: 'Resy credit — Jan–Jun', value: 50, period: 'semiannual', half: 1 },
@@ -174,7 +183,7 @@ export const CARDS = [
       'The 4x grocery rate is US supermarkets only — warehouse clubs and superstores are excluded.',
       'Dining is capped at $50k/yr and groceries at $25k/yr; past the cap both drop to 1x.',
       '5x applies to prepaid hotels booked on Amex Travel; flights there earn 3x.',
-      'Also carries a $100 Hotel Collection credit on 2+ night bookings, which is per-booking rather than recurring and so is not tracked here.',
+      'Also carries a $100 Hotel Collection credit, which needs 2+ consecutive nights. Per-booking rather than recurring, so it is not tracked here.',
     ],
   },
   {
@@ -190,12 +199,16 @@ export const CARDS = [
       travel_portal_amex_hotels: 5,
     },
     credits: [
-      { id: 'plat_hotel_h1', label: 'Hotel credit — Jan–Jun', value: 300, period: 'semiannual', half: 1, note: 'Fine Hotels + Resorts or The Hotel Collection, prepaid on Amex Travel.' },
-      { id: 'plat_hotel_h2', label: 'Hotel credit — Jul–Dec', value: 300, period: 'semiannual', half: 2, note: 'Fine Hotels + Resorts or The Hotel Collection, prepaid on Amex Travel.' },
+      // The night minimum depends on which programme you book: Fine Hotels +
+      // Resorts clears on a single night, The Hotel Collection needs two
+      // consecutive. Easy to lose the credit by booking one night at an THC
+      // property assuming it works like FHR.
+      { id: 'plat_hotel_h1', label: 'Hotel credit — Jan–Jun', value: 300, period: 'semiannual', half: 1, note: 'Prepaid on Amex Travel. FHR: 1 night minimum. The Hotel Collection: 2+ consecutive nights.' },
+      { id: 'plat_hotel_h2', label: 'Hotel credit — Jul–Dec', value: 300, period: 'semiannual', half: 2, note: 'Prepaid on Amex Travel. FHR: 1 night minimum. The Hotel Collection: 2+ consecutive nights.' },
       { id: 'plat_resy', label: 'Resy dining credit', value: 100, period: 'quarterly' },
       { id: 'plat_lululemon', label: 'lululemon credit', value: 75, period: 'quarterly', note: 'US retail stores and lululemon.com. Outlets excluded.' },
       { id: 'plat_digital', label: 'Digital entertainment credit', value: 25, period: 'monthly', note: 'Select streaming and news subscriptions.' },
-      { id: 'plat_uber', label: 'Uber Cash', value: 15, period: 'monthly', note: 'Bumped by $20 in December.' },
+      { id: 'plat_uber', label: 'Uber Cash', value: 15, period: 'monthly', merchant: 'uber', note: 'Bumped by $20 in December. Add the card to your Uber account first.' },
       { id: 'plat_walmart', label: 'Walmart+ membership', value: 12.95, period: 'monthly', note: 'Offsets the monthly membership charge.' },
       { id: 'plat_airline', label: 'Airline incidental credit', value: 200, period: 'annual', note: 'Pick one airline per year. Bags and seats, not fares.' },
       { id: 'plat_equinox', label: 'Equinox credit', value: 300, period: 'annual', note: 'Club membership or Equinox+ digital.' },

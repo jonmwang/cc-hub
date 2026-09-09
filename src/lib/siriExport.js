@@ -1,7 +1,9 @@
 import { CATEGORY_BY_ID } from '../data/categories'
 import { rankCardsForCategory } from './ranking'
+import { creditPlanFor } from './credits'
+import { CREDIT_MERCHANTS } from '../data/merchants'
 import { currentQuarterLabel } from './periods'
-import { cardTitle } from '../components/ui'
+import { cardTitle, possessive } from '../components/ui'
 
 // Builds the snapshot the Siri shortcut reads.
 //
@@ -34,7 +36,11 @@ const FLOW = [
 // What people actually say out loud, which is rarely the category name. Siri
 // hands over the whole phrase, so these need to cover natural speech.
 const ALIASES = {
-  dining: ['restaurant', 'restaurants', 'dinner', 'lunch', 'breakfast', 'brunch', 'food', 'takeout', 'take out', 'eating out', 'dining', 'delivery', 'doordash', 'uber eats', 'bar', 'drinks', 'cafe', 'coffee'],
+  // 'doordash' and 'uber eats' deliberately absent: they have their own
+  // credit-aware rows above, and the matcher lets a later alias overwrite an
+  // earlier one — leaving them here would silently bury the credit answer
+  // under the plain dining answer.
+  dining: ['restaurant', 'restaurants', 'dinner', 'lunch', 'breakfast', 'brunch', 'food', 'takeout', 'take out', 'eating out', 'dining', 'delivery', 'bar', 'drinks', 'cafe', 'coffee'],
   groceries: ['grocery', 'groceries', 'supermarket', 'food shopping', 'trader joes', 'whole foods', 'safeway', 'wegmans', 'h mart', 'hmart'],
   superstores: ['walmart', 'target', 'superstore', 'super store'],
   entertainment: ['movie', 'movies', 'cinema', 'theater', 'theatre', 'concert', 'concerts', 'show', 'live event', 'live events', 'tickets', 'amc'],
@@ -71,6 +77,38 @@ export function buildSiriSnapshot(state) {
     const id = `merchant_${rule.id}`
     lines.push(['A', id, esc(rule.name), esc(cardTitle(ranked[0].card)), esc(ranked[0].multiplier + 'x'), ''].join('\t'))
     lines.push(['X', esc(rule.name).toLowerCase(), id].join('\t'))
+  }
+
+  // Credit-linked merchants, before the plain categories. At these places the
+  // earn rate does not decide — an unclaimed credit is worth far more than the
+  // multiplier gap — so the spoken answer has to name the credit card and say
+  // what to switch to once it's spent.
+  for (const m of CREDIT_MERCHANTS) {
+    const plan = creditPlanFor(state, m.id, scoped)
+    if (!plan?.hasAnyCredits) continue
+
+    const top = plan.unclaimed[0]
+    const id = `credit_${m.id}`
+
+    if (top) {
+      const holder = state.people.length > 1 ? state.people.find((p) => p.id === top.ownerId)?.name : null
+      const card = holder ? `${possessive(holder)} ${cardTitle(top.card)}` : cardTitle(top.card)
+      const after =
+        plan.earnWinner && plan.earnWinner.card.id !== top.card.id
+          ? `That captures $${top.value} of credit. Once it's used this period, the ${cardTitle(plan.earnWinner.card)} earns more.`
+          : `That captures $${top.value} of credit.`
+      lines.push(['A', id, esc(m.name), esc(card), esc(top.multiplier + 'x'), esc(after)].join('\t'))
+    } else if (plan.earnWinner) {
+      lines.push([
+        'A', id, esc(m.name), esc(cardTitle(plan.earnWinner.card)),
+        esc(plan.earnWinner.multiplier + 'x'),
+        esc(`${m.name} credits are all used this period, so this is purely earn rate.`),
+      ].join('\t'))
+    } else {
+      continue
+    }
+
+    for (const alias of m.aliases) lines.push(['X', alias, id].join('\t'))
   }
 
   for (const step of FLOW) {

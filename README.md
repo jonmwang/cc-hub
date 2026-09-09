@@ -188,6 +188,35 @@ dining or drugstores, already 3x, a quarterly pick makes it **7x**. Modelling th
 
 Rates were verified against the issuers' own product pages in September 2026.
 
+### Credits can outrank the best earn rate
+
+At some merchants the highest multiplier is the wrong answer. A DoorDash order on
+the Amex Gold earns 4x against the Sapphire Reserve's 3x — worth about 1.75¢ per
+dollar — but the Reserve carries **$25/month of DoorDash credit that only pays out
+if you use that card**. On any realistic order the credit dwarfs the earn gap.
+
+Credits tagged with a `merchant` in `cards.js` can only be captured by spending
+there, and `lib/credits.js` turns that into a plan: claim the largest unclaimed
+credit first, fall through to the next, and once they're all spent for the period
+switch to the best pure earner. Quick Picks and the spoken/extension answers both
+render it.
+
+It also computes the **crossover spend** — where earning finally beats claiming:
+
+```
+credit + spend·Ma·cpp  >  spend·Mb·cpp     →     spend < credit / ((Mb − Ma)·cpp)
+```
+
+That number is worth having rather than assuming credits always win. DoorDash
+crosses over around **$1,429**, so the Reserve effectively always wins. Uber
+crosses at about **$209**, because the Platinum earns only 1x on rideshare
+against the Sapphire Preferred's 5.1x — so on a big fare the CSP is right even
+with the credit sitting unused.
+
+Because both people can hold the same card and a credit belongs to exactly one of
+them, credit answers name the holder. "Chase Sapphire Preferred" alone would send
+you to the wrong physical card.
+
 ### How Quick Picks orders itself
 
 It's a funnel, not a list. Steps are ordered by how often you actually buy the thing —
