@@ -80,8 +80,13 @@ export const cardNameOnly = (card) => {
     : card.name
 }
 
-// "Jonathan's Sapphire Reserve" reads fine; "Me's Sapphire Reserve" does not, and
-// "Me" is the default name until someone renames themselves in Settings.
+// The names people start with, before anyone opens Settings. They identify a
+// slot, not a person, so they can't be used to say whose card something is —
+// "Partner's Savor" tells you nothing you didn't already know.
+const PLACEHOLDER_NAMES = ['me', 'partner']
+export const isPlaceholderName = (name) => !name || PLACEHOLDER_NAMES.includes(name.toLowerCase())
+
+// "Jonathan's Sapphire Reserve" reads fine; "Me's Sapphire Reserve" does not.
 export const possessive = (name) => {
   if (!name) return null
   if (name.toLowerCase() === 'me') return 'your'

@@ -3,7 +3,7 @@ import { rankCardsForCategory, soleHolderName } from './ranking'
 import { creditPlanFor } from './credits'
 import { CREDIT_MERCHANTS } from '../data/merchants'
 import { currentQuarterLabel } from './periods'
-import { cardTitle, possessive } from '../components/ui'
+import { cardTitle, isPlaceholderName, possessive } from '../components/ui'
 
 // Builds the snapshot the Siri shortcut reads.
 //
@@ -79,14 +79,14 @@ export function buildSiriSnapshot(state, opts = {}) {
   // and reads wrong out loud: "use Alexis' Savor" spoken to Alexis.
   const attribute = owner === 'all' && state.people.length > 1
 
-  // possessive() turns the default name "Me" into "your", which is right on the
-  // site and wrong here: the household sheet is read by BOTH of you, so "your
-  // Amex Gold Card" would send whoever isn't the account owner after a card
-  // they don't have. Until that person is given a real name in Settings, say
-  // nothing — a bare card name is vague, but it isn't false.
+  // Naming the holder is a nicety, not the job — the job is naming the right
+  // card, and the household sheet does that whoever is reading. So attribution
+  // only appears once both people have real names in Settings. On the defaults
+  // it would be noise at best ("Partner's Savor") and a lie at worst, since
+  // possessive() renders "Me" as "your" and the other reader is not you.
   const nameOf = (cardId) => {
     const name = attribute ? soleHolderName(state, cardId) : null
-    return possessive(name) === 'your' ? null : name
+    return isPlaceholderName(name) ? null : name
   }
   const lines = [
     '# CC Hub — spoken answers for Siri.',
@@ -122,7 +122,7 @@ export function buildSiriSnapshot(state, opts = {}) {
       // Not whose(): a credit belongs to one specific wallet entry even when
       // both people carry that card, so name the entry's owner directly.
       const holderName = attribute ? state.people.find((p) => p.id === top.ownerId)?.name : null
-      const holder = possessive(holderName) === 'your' ? null : holderName
+      const holder = isPlaceholderName(holderName) ? null : holderName
       // "your" is only safe on a person-scoped sheet, where the reader owns
       // every card on it. On the household sheet, fall back to the bare card
       // name rather than claiming it belongs to whoever happens to be asking.
