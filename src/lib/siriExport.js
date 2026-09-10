@@ -1,7 +1,7 @@
 import { CATEGORY_BY_ID } from '../data/categories'
 import { rankCardsForCategory, soleHolderName } from './ranking'
 import { creditPlanFor } from './credits'
-import { CREDIT_MERCHANTS } from '../data/merchants'
+import { CREDIT_MERCHANTS, CREDIT_ROWS_AFTER_CATEGORY } from '../data/merchants'
 import { currentQuarterLabel } from './periods'
 import { cardTitle, isPlaceholderName, possessive } from '../components/ui'
 
@@ -117,11 +117,18 @@ export function buildSiriSnapshot(state, opts = {}) {
     lines.push(['X', esc(rule.name).toLowerCase(), id].join('\t'))
   }
 
-  // Credit-linked merchants, before the plain categories. At these places the
-  // earn rate does not decide — an unclaimed credit is worth far more than the
-  // multiplier gap — so the spoken answer has to name the credit card and say
-  // what to switch to once it's spent.
-  for (const m of CREDIT_MERCHANTS) {
+  // Credit-linked merchants. At these places the earn rate does not decide — an
+  // unclaimed credit is worth far more than the multiplier gap — so the answer
+  // has to name the credit card and say what to switch to once it's spent.
+  //
+  // Emitted mid-flow rather than up front, at the same point Quick Picks shows
+  // them, because the sheet and the page must never disagree about order: read
+  // aloud, "work down the list" is the whole instruction.
+  let creditRowsEmitted = false
+  const emitCreditRows = () => {
+    if (creditRowsEmitted) return
+    creditRowsEmitted = true
+    for (const m of CREDIT_MERCHANTS) {
     const plan = creditPlanFor(state, m.id, scoped)
     if (!plan?.hasAnyCredits) continue
 
@@ -163,10 +170,14 @@ export function buildSiriSnapshot(state, opts = {}) {
       continue
     }
 
-    for (const alias of m.aliases) lines.push(['X', alias, id].join('\t'))
+      for (const alias of m.aliases) lines.push(['X', alias, id].join('\t'))
+    }
   }
 
   for (const step of FLOW) {
+    // Never below the catch-all: that row is the terminal "stop here".
+    if (step.categoryId === 'everything_else') emitCreditRows()
+
     const ranked = rankCardsForCategory(state, step.categoryId, scoped)
     const winner = ranked[0]
     if (!winner) continue
@@ -196,7 +207,13 @@ export function buildSiriSnapshot(state, opts = {}) {
     lines.push(['X', esc(step.label).toLowerCase(), step.categoryId].join('\t'))
     const short = CATEGORY_BY_ID[step.categoryId]?.label?.toLowerCase()
     if (short) lines.push(['X', esc(short), step.categoryId].join('\t'))
+
+    if (step.categoryId === CREDIT_ROWS_AFTER_CATEGORY) emitCreditRows()
   }
+
+  // Belt and braces: if neither the anchor nor the catch-all appeared, the rows
+  // still have to reach the sheet or four answers vanish silently.
+  emitCreditRows()
 
   return lines.join('\n') + '\n'
 }

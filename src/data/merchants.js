@@ -63,4 +63,14 @@ export const CREDIT_MERCHANTS = [
   },
 ]
 
+// Where the credit-merchant rows sit, in Quick Picks and on the spoken sheet.
+//
+// They used to lead the list, on the reasoning that getting a credit wrong costs
+// real money while getting an earn rate wrong costs a few points. True, but it
+// optimised the wrong thing: a list you scan every day should be ordered by how
+// often you actually reach the line, not by the size of the mistake available on
+// it. This household barely uses these four, so four rarely-touched rows sat
+// above the ones used daily. They now follow transit.
+export const CREDIT_ROWS_AFTER_CATEGORY = 'transit'
+
 export const CREDIT_MERCHANT_BY_ID = Object.fromEntries(CREDIT_MERCHANTS.map((m) => [m.id, m]))

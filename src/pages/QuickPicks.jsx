@@ -4,7 +4,7 @@ import { useStore } from '../store/StoreContext'
 import { CATEGORY_BY_ID } from '../data/categories'
 import { formatMultiplier, rankCardsForCategory } from '../lib/ranking'
 import { creditPlanFor } from '../lib/credits'
-import { CREDIT_MERCHANTS } from '../data/merchants'
+import { CREDIT_MERCHANTS, CREDIT_ROWS_AFTER_CATEGORY } from '../data/merchants'
 import { currentQuarterLabel } from '../lib/periods'
 import CardArt from '../components/CardArt'
 import { Segmented, cardTitle, possessive } from '../components/ui'
@@ -140,7 +140,14 @@ export default function QuickPicks() {
   }, [state, scoped])
 
   const hasCards = state.wallet.some((w) => owner === 'all' || w.ownerId === owner)
-  const allRows = [...merchantRows, ...creditRows, ...flowRows]
+  const allRows = useMemo(() => {
+    const at = flowRows.findIndex((r) => r.id === CREDIT_ROWS_AFTER_CATEGORY)
+    // If transit didn't earn a line this quarter, sit just above the terminal
+    // catch-all instead. Nothing belongs below that row — it's the "stop here"
+    // and the only one that folds the leftovers into itself.
+    const insertAt = at >= 0 ? at + 1 : Math.max(0, flowRows.length - 1)
+    return [...merchantRows, ...flowRows.slice(0, insertAt), ...creditRows, ...flowRows.slice(insertAt)]
+  }, [merchantRows, creditRows, flowRows])
 
   return (
     <div className="page qp-page">
