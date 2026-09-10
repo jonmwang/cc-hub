@@ -234,9 +234,22 @@ function FlowRow({ row, index, last, open, onToggle, state }) {
           <span className="qp-card-name">{cardTitle(card)}</span>
           {plan?.unclaimed?.length > 0 && (
             <span className="chip chip-credit">
-              {ownerName(state, plan.unclaimed[0].ownerId)
-                ? `${capitalise(possessive(ownerName(state, plan.unclaimed[0].ownerId)))} · $${plan.unclaimed[0].value} credit left`
-                : `$${plan.unclaimed[0].value} credit left`}
+              {/* Must match the figure the expanded row states, so a pooled
+                  credit is summed here too — a chip saying $15 above an
+                  explanation saying $25 just looks broken. */}
+              {(() => {
+                const top = plan.unclaimed[0]
+                const amount =
+                  top.credit.redeemableBy === 'issuer'
+                    ? plan.unclaimed
+                        .filter((c) => c.credit.redeemableBy === 'issuer')
+                        .reduce((sum, c) => sum + c.value, 0)
+                    : top.value
+                const who = ownerName(state, top.ownerId)
+                return who
+                  ? `${capitalise(possessive(who))} · $${amount} credit left`
+                  : `$${amount} credit left`
+              })()}
             </span>
           )}
           {plan?.allUsed && <span className="chip chip-cash">Credits used</span>}
@@ -283,12 +296,29 @@ function FlowRow({ row, index, last, open, onToggle, state }) {
                             ? `${possessive(ownerName(state, plan.unclaimed[0].ownerId))} ${cardTitle(plan.unclaimed[0].card)}`
                             : cardTitle(plan.unclaimed[0].card)}
                         </strong>{' '}
-                        to capture its{' '}
-                        <strong>${plan.unclaimed[0].value}</strong> {plan.merchant.name} credit
+                        {/* "its" only holds when the card paying is the card the credit
+                            came with. An issuer-redeemable credit — Amex Uber Cash — is a
+                            balance any Amex redeems, so the honest phrasing is the pool
+                            rather than one card's share of it. */}
+                        {plan.unclaimed[0].credit.redeemableBy === 'issuer' ? 'to spend the' : 'to capture its'}{' '}
+                        <strong>
+                          $
+                          {plan.unclaimed[0].credit.redeemableBy === 'issuer'
+                            ? plan.unclaimed
+                                .filter((c) => c.credit.redeemableBy === 'issuer')
+                                .reduce((sum, c) => sum + c.value, 0)
+                            : plan.unclaimed[0].value}
+                        </strong>{' '}
+                        {plan.merchant.name} credit
+                        {plan.unclaimed[0].credit.redeemableBy === 'issuer'
+                          ? ` sitting on your ${plan.unclaimed[0].card.issuer} cards`
+                          : ''}
                         {plan.unclaimed[0].info?.useByLabel ? ` — use by ${plan.unclaimed[0].info.useByLabel}` : ''}.
                         A credit is real money; the earn-rate gap is pennies.
                       </div>
-                      {plan.unclaimed.length > 1 && (
+                      {/* Suppressed for a pooled credit: the total is already stated above,
+                          and the runner-up is the same pot on a second card. */}
+                      {plan.unclaimed.length > 1 && plan.unclaimed[0].credit.redeemableBy !== 'issuer' && (
                         <div className="qp-credit-more">
                           Then{' '}
                           <strong>

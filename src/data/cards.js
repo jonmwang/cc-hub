@@ -173,7 +173,7 @@ export const CARDS = [
       travel_other: 2,
     },
     credits: [
-      { id: 'gold_uber', label: 'Uber Cash', value: 10, period: 'monthly', merchant: 'uber', note: 'Uber rides or Uber Eats. Add the card to your Uber account first.' },
+      { id: 'gold_uber', label: 'Uber Cash', value: 10, period: 'monthly', merchant: 'uber', redeemableBy: 'issuer', note: 'Uber rides or Uber Eats. Deposited as Uber Cash — redeems against any Amex, so pay with whichever Amex earns most.' },
       { id: 'gold_dining', label: 'Dining credit', value: 10, period: 'monthly', note: 'Grubhub, Cheesecake Factory, Goldbelly, Wine.com, Five Guys.' },
       { id: 'gold_dunkin', label: 'Dunkin’ credit', value: 7, period: 'monthly', note: 'Top up the Dunkin’ app to bank the value for later.' },
       { id: 'gold_resy_h1', label: 'Resy credit — Jan–Jun', value: 50, period: 'semiannual', half: 1 },
@@ -208,7 +208,7 @@ export const CARDS = [
       { id: 'plat_resy', label: 'Resy dining credit', value: 100, period: 'quarterly' },
       { id: 'plat_lululemon', label: 'lululemon credit', value: 75, period: 'quarterly', note: 'US retail stores and lululemon.com. Outlets excluded.' },
       { id: 'plat_digital', label: 'Digital entertainment credit', value: 25, period: 'monthly', note: 'Select streaming and news subscriptions.' },
-      { id: 'plat_uber', label: 'Uber Cash', value: 15, period: 'monthly', merchant: 'uber', note: 'Bumped by $20 in December. Add the card to your Uber account first.' },
+      { id: 'plat_uber', label: 'Uber Cash', value: 15, period: 'monthly', merchant: 'uber', redeemableBy: 'issuer', note: 'Bumped by $20 in December. Deposited as Uber Cash — redeems against any Amex, so pay with whichever Amex earns most.' },
       { id: 'plat_walmart', label: 'Walmart+ membership', value: 12.95, period: 'monthly', note: 'Offsets the monthly membership charge.' },
       { id: 'plat_airline', label: 'Airline incidental credit', value: 200, period: 'annual', note: 'Pick one airline per year. Bags and seats, not fares.' },
       { id: 'plat_equinox', label: 'Equinox credit', value: 300, period: 'annual', note: 'Club membership or Equinox+ digital.' },

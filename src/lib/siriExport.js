@@ -129,10 +129,19 @@ export function buildSiriSnapshot(state, opts = {}) {
       const card = holder
         ? `${possessive(holder)} ${cardTitle(top.card)}`
         : `${attribute ? 'the' : 'your'} ${cardTitle(top.card)}`
+      // An issuer-redeemable credit is one balance spread over several cards of
+      // that issuer, so quote the pool rather than the single line the sort
+      // happened to surface.
+      const pooledValue =
+        top.credit.redeemableBy === 'issuer'
+          ? plan.unclaimed
+              .filter((c) => c.credit.redeemableBy === 'issuer')
+              .reduce((sum, c) => sum + c.value, 0)
+          : top.value
       const after =
         plan.earnWinner && plan.earnWinner.card.id !== top.card.id
-          ? `That captures $${top.value} of credit. Once it's used this period, the ${cardTitle(plan.earnWinner.card)} earns more.`
-          : `That captures $${top.value} of credit.`
+          ? `That captures $${pooledValue} of credit. Once it's used this period, the ${cardTitle(plan.earnWinner.card)} earns more.`
+          : `That captures $${pooledValue} of credit.`
       lines.push(['A', id, esc(m.name), esc(card), esc(top.multiplier + 'x'), esc(after)].join('\t'))
     } else if (plan.earnWinner) {
       lines.push([

@@ -20,15 +20,32 @@ export const CREDIT_MERCHANTS = [
     icon: '🛵',
     aliases: ['doordash', 'door dash', 'dash pass', 'dashpass'],
   },
+  // Uber is two merchants sharing one credit. The Uber Cash pool covers rides
+  // and Eats alike, and that was the reason these were a single row ranked as
+  // rideshare — but the credit and the earn rate answer different questions.
+  // Uber Eats codes as dining, rides code as rideshare, and nothing in this
+  // wallet earns the same on both.
+  //
+  // As one rideshare row, Uber Eats answered the Sapphire Preferred at 5.1x,
+  // which is its rideshare rate; on Eats the Preferred earns 3x. So: two rows
+  // for the earn rate, `creditPool` to keep them drawing on the one pot of Uber
+  // Cash. Usage is tracked per credit id, so spending it here marks it spent in
+  // both places.
   {
     id: 'uber',
-    name: 'Uber & Uber Eats',
-    // Ranked as rideshare because that's the larger spend, but the Uber Cash
-    // credit covers rides and Eats alike — which is exactly why this belongs
-    // here rather than being split across two category rows.
+    name: 'Uber',
     categoryId: 'rideshare',
     icon: '🚗',
-    aliases: ['uber', 'uber eats', 'ubereats', 'uber ride', 'rideshare', 'ride share'],
+    creditPool: 'uber',
+    aliases: ['uber', 'uber ride', 'uber rides', 'rideshare', 'ride share'],
+  },
+  {
+    id: 'ubereats',
+    name: 'Uber Eats',
+    categoryId: 'dining',
+    icon: '🥡',
+    creditPool: 'uber',
+    aliases: ['uber eats', 'ubereats'],
   },
   {
     id: 'lyft',

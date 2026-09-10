@@ -21,6 +21,34 @@ export function isCreditUsed(state, walletKey, creditId, info) {
 }
 
 /**
+ * The best card of one issuer to put on this purchase.
+ *
+ * Exists for a single real-world quirk. Almost every credit here only posts if
+ * that exact card pays — the Reserve's DoorDash promos, the Platinum's hotel
+ * credit. Amex Uber Cash does not work that way: it is deposited into the Uber
+ * account and redeems against *any* Amex, so the credit constrains the issuer
+ * and nothing more. The card to reach for is then whichever Amex earns most,
+ * which is not the card the credit arrived with — the Platinum carries the
+ * bigger $15 balance but earns 1x on dining, while the Gold earns 4x and
+ * redeems the same pool.
+ */
+function bestEntryForIssuer(state, wallet, issuer, categoryId) {
+  let best = null
+  let bestValue = -1
+  for (const entry of wallet) {
+    const card = CARD_BY_ID[entry.cardId]
+    if (!card || card.issuer !== issuer) continue
+    const { multiplier } = effectiveMultiplier(state, entry, categoryId)
+    const value = multiplier * cppFor(state, card)
+    if (value > bestValue) {
+      bestValue = value
+      best = entry
+    }
+  }
+  return best
+}
+
+/**
  * The card to reach for at a credit-linked merchant, and when to stop.
  *
  * Returns the unclaimed credits available right now (largest first), the best
@@ -39,22 +67,39 @@ export function creditPlanFor(state, merchantId, opts = {}) {
     const card = CARD_BY_ID[entry.cardId]
     if (!card) continue
     for (const credit of card.credits) {
-      if (credit.merchant !== merchantId) continue
+      // Sibling merchants can share one pot — Uber and Uber Eats both spend the
+      // same Uber Cash — so match the pool, falling back to the merchant's own
+      // id for the credits it owns outright.
+      if (credit.merchant !== (merchant.creditPool ?? merchantId)) continue
       const info = getPeriodInfo(credit, entry.openDate, state.creditsUsed[entry.key]?.[credit.id]?.usedAt, now)
       if (!info.active) continue
       const used = isCreditUsed(state, entry.key, credit.id, info)
       const value = state.creditValues[entry.key]?.[credit.id] ?? credit.value
-      const { multiplier } = effectiveMultiplier(state, entry, merchant.categoryId)
+
+      // Which card actually goes on the transaction. Normally the card holding
+      // the credit, because that is the only way it posts. A credit marked
+      // `redeemableBy: 'issuer'` is the exception: any card from that issuer
+      // redeems it, so reach for whichever of them earns most.
+      const payEntry =
+        (credit.redeemableBy === 'issuer'
+          ? bestEntryForIssuer(state, wallet, card.issuer, merchant.categoryId)
+          : null) ?? entry
+      const payCard = CARD_BY_ID[payEntry.cardId] ?? card
+      const { multiplier } = effectiveMultiplier(state, payEntry, merchant.categoryId)
+
       claims.push({
+        // Usage stays keyed to the card that carries the credit, whatever card
+        // ends up paying — otherwise ticking it off would mark the wrong line
+        // in the Credit Tracker and it would never reset.
         walletKey: entry.key,
-        ownerId: entry.ownerId,
-        card,
+        ownerId: payEntry.ownerId,
+        card: payCard,
         credit,
         value,
         used,
         info,
         multiplier,
-        cpp: cppFor(state, card),
+        cpp: cppFor(state, payCard),
       })
     }
   }
