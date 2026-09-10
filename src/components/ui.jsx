@@ -80,7 +80,7 @@ export const cardNameOnly = (card) => {
     : card.name
 }
 
-// "Jon's Sapphire Reserve" reads fine; "Me's Sapphire Reserve" does not, and
+// "Jonathan's Sapphire Reserve" reads fine; "Me's Sapphire Reserve" does not, and
 // "Me" is the default name until someone renames themselves in Settings.
 export const possessive = (name) => {
   if (!name) return null

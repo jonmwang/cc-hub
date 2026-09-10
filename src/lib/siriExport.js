@@ -64,7 +64,7 @@ const esc = (s) => String(s ?? '').replace(/[\t\n\r]/g, ' ').trim()
  * 'all' is the right default for a household that pools its cards: narrowing to
  * one person's own cards would hide the better card sitting in the same house,
  * which is worse advice, not safer advice. What a shared sheet does need is
- * ATTRIBUTION — "Jon's Amex Gold", not "Amex Gold" — so the reader knows which
+ * ATTRIBUTION — "Jonathan's Amex Gold", not "Amex Gold" — so the reader knows which
  * physical card to reach for. See soleHolderName().
  *
  * The per-person sheets stay published for the case where the reader genuinely
@@ -78,7 +78,16 @@ export function buildSiriSnapshot(state, opts = {}) {
   // every card already belongs to the reader, so a name there is just noise —
   // and reads wrong out loud: "use Alexis' Savor" spoken to Alexis.
   const attribute = owner === 'all' && state.people.length > 1
-  const whose = (cardId) => (attribute ? soleHolderName(state, cardId) : null)
+
+  // possessive() turns the default name "Me" into "your", which is right on the
+  // site and wrong here: the household sheet is read by BOTH of you, so "your
+  // Amex Gold Card" would send whoever isn't the account owner after a card
+  // they don't have. Until that person is given a real name in Settings, say
+  // nothing — a bare card name is vague, but it isn't false.
+  const nameOf = (cardId) => {
+    const name = attribute ? soleHolderName(state, cardId) : null
+    return possessive(name) === 'your' ? null : name
+  }
   const lines = [
     '# CC Hub — spoken answers for Siri.',
     '# Generated ' + new Date().toLocaleString() + '. Re-export when your cards or',
@@ -112,10 +121,14 @@ export function buildSiriSnapshot(state, opts = {}) {
     if (top) {
       // Not whose(): a credit belongs to one specific wallet entry even when
       // both people carry that card, so name the entry's owner directly.
-      const holder = attribute ? state.people.find((p) => p.id === top.ownerId)?.name : null
+      const holderName = attribute ? state.people.find((p) => p.id === top.ownerId)?.name : null
+      const holder = possessive(holderName) === 'your' ? null : holderName
+      // "your" is only safe on a person-scoped sheet, where the reader owns
+      // every card on it. On the household sheet, fall back to the bare card
+      // name rather than claiming it belongs to whoever happens to be asking.
       const card = holder
         ? `${possessive(holder)} ${cardTitle(top.card)}`
-        : `your ${cardTitle(top.card)}`
+        : `${attribute ? 'the' : 'your'} ${cardTitle(top.card)}`
       const after =
         plan.earnWinner && plan.earnWinner.card.id !== top.card.id
           ? `That captures $${top.value} of credit. Once it's used this period, the ${cardTitle(plan.earnWinner.card)} earns more.`
@@ -142,7 +155,7 @@ export function buildSiriSnapshot(state, opts = {}) {
     // Amex acceptance is patchy enough that the spoken answer should carry the
     // backup, otherwise you're stuck at the register with no second option.
     const backup = winner.card.issuer === 'Amex' ? ranked.find((r) => r.card.issuer !== 'Amex') : null
-    const backupHolder = backup ? whose(backup.card.id) : null
+    const backupHolder = backup ? nameOf(backup.card.id) : null
     const fallback = backup
       ? `If they don't take Amex, use ${backupHolder ? `${possessive(backupHolder)} ` : 'the '}${cardTitle(backup.card)}.`
       : ''
@@ -150,7 +163,7 @@ export function buildSiriSnapshot(state, opts = {}) {
     // Name whose card it is when only one of you holds it. A household that
     // shares cards still has to find the physical thing, and "Amex Gold" is a
     // card that lives in exactly one wallet.
-    const holder = whose(winner.card.id)
+    const holder = nameOf(winner.card.id)
     const cardLabel = holder ? `${possessive(holder)} ${cardTitle(winner.card)}` : cardTitle(winner.card)
 
     lines.push(
