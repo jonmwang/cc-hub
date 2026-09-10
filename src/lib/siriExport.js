@@ -77,13 +77,23 @@ export function buildSiriSnapshot(state, opts = {}) {
   // Only the household sheet names whose card it is. On a person-scoped sheet
   // every card already belongs to the reader, so a name there is just noise —
   // and reads wrong out loud: "use Alexis' Savor" spoken to Alexis.
-  const attribute = owner === 'all' && state.people.length > 1
+  //
+  // Off deliberately, and not because the names are placeholders. In a household
+  // that shares cards, naming the holder does not help: if it is her card she
+  // just uses it, and if she does not have it, not having it is how she knows it
+  // is mine. Naming every card to serve that inference is noise on the surface
+  // that is supposed to be ruthlessly minimal.
+  //
+  // The one answer where the inference genuinely fails is the Sapphire pair —
+  // she holds a Preferred, I hold both a Preferred and a Reserve, so "Chase
+  // Sapphire Reserve" is the single card whose absence from her wallet is not
+  // obvious. Judged not worth attributing all thirteen answers for. If that ever
+  // bites, attribute only cards whose name collides with one the reader holds
+  // rather than turning this back on wholesale.
+  //
+  // Kept as a flag rather than deleted so the machinery below stays reversible.
+  const attribute = false
 
-  // Naming the holder is a nicety, not the job — the job is naming the right
-  // card, and the household sheet does that whoever is reading. So attribution
-  // only appears once both people have real names in Settings. On the defaults
-  // it would be noise at best ("Partner's Savor") and a lie at worst, since
-  // possessive() renders "Me" as "your" and the other reader is not you.
   const nameOf = (cardId) => {
     const name = attribute ? soleHolderName(state, cardId) : null
     return isPlaceholderName(name) ? null : name

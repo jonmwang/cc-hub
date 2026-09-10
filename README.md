@@ -82,14 +82,30 @@ personal data is committed, it all lives in each visitor's browser.
 - **Cloudflare Pages / Vercel** — point at the repo, build command `npm run build`,
   output directory `dist`.
 
-### Manual publish from your machine
+### Publishing a change
+
+With **Source → GitHub Actions** set as above, that workflow is the only thing that
+publishes. Deploying is therefore just pushing:
 
 ```bash
-npm run deploy
+npm run deploy   # git push origin main
 ```
 
-Builds and pushes `dist/` to a `gh-pages` branch via the `gh-pages` package. Only needed
-if you skip the Actions workflow above.
+Nothing you build locally reaches the site — the workflow runs its own `npm ci &&
+npm run build` from the pushed commit. `dist/` is a local artifact only.
+
+**Note the trap.** If Pages is set to GitHub Actions, the older branch-based route does
+nothing: it pushes a built bundle to a `gh-pages` branch that Pages never reads, and
+succeeds, so the site silently keeps serving the previous build. That path now lives
+under an explicit name and should only be used with Pages **Source → Deploy from a
+branch**:
+
+```bash
+npm run deploy:branch
+```
+
+Check which one applies with `gh api repos/<owner>/<repo>/pages --jq .build_type` —
+`workflow` means push to `main`, `legacy` means the branch route.
 
 ## How the data works
 
