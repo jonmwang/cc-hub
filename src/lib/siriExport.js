@@ -1,5 +1,5 @@
 import { CATEGORY_BY_ID } from '../data/categories'
-import { rankCardsForCategory } from './ranking'
+import { rankCardsForCategory, soleHolderName } from './ranking'
 import { creditPlanFor } from './credits'
 import { CREDIT_MERCHANTS } from '../data/merchants'
 import { currentQuarterLabel } from './periods'
@@ -57,9 +57,28 @@ const ALIASES = {
 
 const esc = (s) => String(s ?? '').replace(/[\t\n\r]/g, ' ').trim()
 
-export function buildSiriSnapshot(state) {
-  const owner = state.settings.quickPicksOwner ?? 'all'
+/**
+ * @param state
+ * @param opts.ownerFilter  'all' | personId.
+ *
+ * 'all' is the right default for a household that pools its cards: narrowing to
+ * one person's own cards would hide the better card sitting in the same house,
+ * which is worse advice, not safer advice. What a shared sheet does need is
+ * ATTRIBUTION — "Jon's Amex Gold", not "Amex Gold" — so the reader knows which
+ * physical card to reach for. See soleHolderName().
+ *
+ * The per-person sheets stay published for the case where the reader genuinely
+ * cannot use the other person's cards.
+ */
+export function buildSiriSnapshot(state, opts = {}) {
+  const owner = opts.ownerFilter ?? state.settings.quickPicksOwner ?? 'all'
   const scoped = { ownerFilter: owner, ignoreCashbackFilter: true }
+
+  // Only the household sheet names whose card it is. On a person-scoped sheet
+  // every card already belongs to the reader, so a name there is just noise —
+  // and reads wrong out loud: "use Alexis' Savor" spoken to Alexis.
+  const attribute = owner === 'all' && state.people.length > 1
+  const whose = (cardId) => (attribute ? soleHolderName(state, cardId) : null)
   const lines = [
     '# CC Hub — spoken answers for Siri.',
     '# Generated ' + new Date().toLocaleString() + '. Re-export when your cards or',
@@ -91,8 +110,12 @@ export function buildSiriSnapshot(state) {
     const id = `credit_${m.id}`
 
     if (top) {
-      const holder = state.people.length > 1 ? state.people.find((p) => p.id === top.ownerId)?.name : null
-      const card = holder ? `${possessive(holder)} ${cardTitle(top.card)}` : cardTitle(top.card)
+      // Not whose(): a credit belongs to one specific wallet entry even when
+      // both people carry that card, so name the entry's owner directly.
+      const holder = attribute ? state.people.find((p) => p.id === top.ownerId)?.name : null
+      const card = holder
+        ? `${possessive(holder)} ${cardTitle(top.card)}`
+        : `your ${cardTitle(top.card)}`
       const after =
         plan.earnWinner && plan.earnWinner.card.id !== top.card.id
           ? `That captures $${top.value} of credit. Once it's used this period, the ${cardTitle(plan.earnWinner.card)} earns more.`
@@ -119,10 +142,19 @@ export function buildSiriSnapshot(state) {
     // Amex acceptance is patchy enough that the spoken answer should carry the
     // backup, otherwise you're stuck at the register with no second option.
     const backup = winner.card.issuer === 'Amex' ? ranked.find((r) => r.card.issuer !== 'Amex') : null
-    const fallback = backup ? `If they don't take Amex, use the ${cardTitle(backup.card)}.` : ''
+    const backupHolder = backup ? whose(backup.card.id) : null
+    const fallback = backup
+      ? `If they don't take Amex, use ${backupHolder ? `${possessive(backupHolder)} ` : 'the '}${cardTitle(backup.card)}.`
+      : ''
+
+    // Name whose card it is when only one of you holds it. A household that
+    // shares cards still has to find the physical thing, and "Amex Gold" is a
+    // card that lives in exactly one wallet.
+    const holder = whose(winner.card.id)
+    const cardLabel = holder ? `${possessive(holder)} ${cardTitle(winner.card)}` : cardTitle(winner.card)
 
     lines.push(
-      ['A', step.categoryId, esc(step.label), esc(cardTitle(winner.card)), esc(winner.multiplier + 'x'), esc(fallback)].join('\t'),
+      ['A', step.categoryId, esc(step.label), esc(cardLabel), esc(winner.multiplier + 'x'), esc(fallback)].join('\t'),
     )
 
     for (const alias of ALIASES[step.categoryId] ?? []) {

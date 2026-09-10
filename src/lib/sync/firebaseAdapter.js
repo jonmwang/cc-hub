@@ -103,14 +103,36 @@ export class FirestoreAdapter {
   async publishAnswers(state) {
     if (!this.buildAnswers) return
     try {
+      const encode = (tsv) => {
+        const bytes = new TextEncoder().encode(tsv)
+        let binary = ''
+        bytes.forEach((b) => {
+          binary += String.fromCharCode(b)
+        })
+        return btoa(binary)
+      }
+
+      // The household sheet: whatever the site's own person selector is set to.
       const tsv = this.buildAnswers(state)
       if (!tsv) return
-      const bytes = new TextEncoder().encode(tsv)
-      let binary = ''
-      bytes.forEach((b) => {
-        binary += String.fromCharCode(b)
-      })
-      await setDoc(this.answersRef, { b64: btoa(binary), updatedAt: Date.now(), v: 1 })
+      await setDoc(this.answersRef, { b64: encode(tsv), updatedAt: Date.now(), v: 1 })
+
+      // Plus one sheet per person, scoped to only the cards they actually hold.
+      //
+      // Without these there is a single household sheet naming the best card in
+      // the HOUSE — which for a two-person wallet means roughly half the answers
+      // point at somebody else's card. Handing that to a partner produces
+      // confident wrong answers aimed at the person least able to catch them,
+      // which is the one failure this whole tool exists to prevent.
+      for (const person of state.people ?? []) {
+        const personTsv = this.buildAnswers(state, { ownerFilter: person.id })
+        if (!personTsv) continue
+        await setDoc(doc(this.db, 'answers', `${this.householdId}_${person.id}`), {
+          b64: encode(personTsv),
+          updatedAt: Date.now(),
+          v: 1,
+        })
+      }
     } catch {
       // Never let the answer sheet take sync down with it — the encrypted
       // document is the source of truth and has already been written.

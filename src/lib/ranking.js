@@ -103,6 +103,23 @@ export function rankCardsForCategory(state, categoryId, opts = {}) {
   return rows
 }
 
+/**
+ * The person to name when telling someone which physical card to reach for.
+ *
+ * Only worth saying when exactly ONE person in the household holds that card.
+ * Both of you carry a Venture X and a Sapphire Preferred, so labelling those is
+ * noise — either card works. But "Amex Gold" is one physical card in one
+ * person's wallet, and a household that pools cards needs to know whose.
+ *
+ * Returns null when the label would add nothing.
+ */
+export function soleHolderName(state, cardId) {
+  if (!state.people || state.people.length < 2) return null
+  const holders = [...new Set(state.wallet.filter((w) => w.cardId === cardId).map((w) => w.ownerId))]
+  if (holders.length !== 1) return null
+  return state.people.find((p) => p.id === holders[0])?.name ?? null
+}
+
 export const formatMultiplier = (m) =>
   Number.isInteger(m) ? `${m}x` : `${m.toFixed(1).replace(/\.0$/, '')}x`
 
