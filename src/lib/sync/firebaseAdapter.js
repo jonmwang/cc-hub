@@ -10,6 +10,22 @@ import { mergeStates } from './merge'
 
 const WRITE_DEBOUNCE_MS = 800
 
+// Key-order-independent serialisation, used only to answer "is this the same
+// state I already sent?". mergeStates and migrate rebuild objects, so plain
+// JSON.stringify can differ byte-for-byte while describing identical data —
+// which is exactly the case that has to compare equal here.
+const stableJson = (value) =>
+  JSON.stringify(value, (_key, val) =>
+    val && typeof val === 'object' && !Array.isArray(val)
+      ? Object.keys(val)
+          .sort()
+          .reduce((out, k) => {
+            out[k] = val[k]
+            return out
+          }, {})
+      : val,
+  )
+
 export class FirestoreAdapter {
   constructor({ householdId, keyString, onLocalMerge, buildAnswers }) {
     this.householdId = householdId
@@ -22,6 +38,9 @@ export class FirestoreAdapter {
     this.key = null
     this.status = 'connecting'
     this.lastSeen = null
+    // Serialisation of the last payload actually sent. The write loop guard —
+    // see flush().
+    this.lastSentJson = null
     this.pendingTimer = null
     this.pendingState = null
 
@@ -47,6 +66,7 @@ export class FirestoreAdapter {
       const state = await decryptJson(this.key, snap.data())
       this.status = 'synced'
       this.lastSeen = state
+      this.lastSentJson = stableJson(state)
       return state
     } catch (err) {
       // A decryption failure means the key in the link doesn't match this
@@ -69,15 +89,44 @@ export class FirestoreAdapter {
     const state = this.pendingState
     if (!state) return
     this.pendingTimer = null
+
+    // Don't write state we already sent.
+    //
+    // Without this the app writes in an unbounded loop, and it is not obvious
+    // from any one piece of code. A server snapshot arrives with
+    // hasPendingWrites false — that flag only suppresses the optimistic local
+    // echo, not the confirmed one — subscribe() merges it into a *new* object,
+    // React sees a changed reference, the persist effect fires, and we write.
+    // That write confirms, which delivers another snapshot, and round it goes at
+    // roughly one write per debounce interval.
+    //
+    // It burned 20,000 writes in a night: the entire Spark daily quota. Firestore
+    // then rejected every write, flush() swallowed it, and the answer sheet
+    // silently stopped updating while reads carried on working perfectly — which
+    // is a genuinely hard thing to diagnose from the outside.
+    //
+    // `lastSeen` was clearly meant to be this guard; it was assigned in three
+    // places and never once compared.
+    const json = stableJson(state)
+    if (json === this.lastSentJson) {
+      this.status = 'synced'
+      return
+    }
+
     try {
       await this.ready()
       const payload = await encryptJson(this.key, state)
       await setDoc(this.ref, { ...payload, updatedAt: Date.now(), v: 1 })
       this.lastSeen = state
+      this.lastSentJson = json
       this.status = 'synced'
       await this.publishAnswers(state)
-    } catch {
-      this.status = 'error'
+    } catch (err) {
+      // Quota exhaustion earns its own status. "Sync offline" sent us looking at
+      // security rules, payload sizes, deploy pipelines and browser caches for
+      // hours; the database was simply refusing writes for the rest of the day.
+      this.status = err?.code === 'resource-exhausted' ? 'quota' : 'error'
+      this.lastError = err?.code || err?.message || 'unknown'
     }
   }
 
@@ -133,9 +182,12 @@ export class FirestoreAdapter {
           v: 1,
         })
       }
-    } catch {
+    } catch (err) {
       // Never let the answer sheet take sync down with it — the encrypted
-      // document is the source of truth and has already been written.
+      // document is the source of truth and has already been written. But record
+      // it: a silently stale sheet looks right and is trusted, which is worse
+      // than one that is visibly broken.
+      this.answersError = err?.code || err?.message || 'unknown'
     }
   }
 
@@ -174,6 +226,8 @@ export class FirestoreAdapter {
         return { mode: 'cloud', detail: 'Synced & encrypted' }
       case 'bad-key':
         return { mode: 'error', detail: 'Sync key mismatch' }
+      case 'quota':
+        return { mode: 'error', detail: 'Daily write limit reached — sync resumes tomorrow' }
       case 'error':
         return { mode: 'error', detail: 'Sync offline' }
       default:
