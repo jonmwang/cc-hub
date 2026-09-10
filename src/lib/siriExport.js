@@ -141,11 +141,17 @@ export function buildSiriSnapshot(state, opts = {}) {
       const holderName = attribute ? state.people.find((p) => p.id === top.ownerId)?.name : null
       const holder = isPlaceholderName(holderName) ? null : holderName
       // "your" is only safe on a person-scoped sheet, where the reader owns
-      // every card on it. On the household sheet, fall back to the bare card
-      // name rather than claiming it belongs to whoever happens to be asking.
+      // every card on it. On the household sheet, say "the" — claiming a card
+      // belongs to whoever happens to be asking is wrong half the time, and
+      // wrong in the worst direction: "use your Chase Sapphire Reserve" spoken
+      // to the person who doesn't hold one.
+      //
+      // This keys off the scope, not off `attribute`. Tying it to attribution
+      // was a mistake: turning names off flipped the household sheet to "your",
+      // which is exactly the case the line above warns against.
       const card = holder
         ? `${possessive(holder)} ${cardTitle(top.card)}`
-        : `${attribute ? 'the' : 'your'} ${cardTitle(top.card)}`
+        : `${owner === 'all' ? 'the' : 'your'} ${cardTitle(top.card)}`
       // An issuer-redeemable credit is one balance spread over several cards of
       // that issuer, so quote the pool rather than the single line the sort
       // happened to surface.
