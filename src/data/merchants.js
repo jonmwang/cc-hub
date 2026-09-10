@@ -47,6 +47,13 @@ export const CREDIT_MERCHANTS = [
     creditPool: 'uber',
     aliases: ['uber eats', 'ubereats'],
   },
+  // The Sapphire Preferred's 5x on Lyft is not modelled. It is a merchant-level
+  // partnership rate, and there is no way to express one here — `rideshare: 5`
+  // on the card was the previous attempt and it leaked 5.1x onto every Uber ride
+  // as well. Lyft's answer is decided by the Reserve's $10 credit regardless, so
+  // the only thing lost is the "once the credit is gone" line, which now names
+  // whichever card wins on the plain 2x travel rate. Wants a real
+  // merchant-rate mechanism rather than another category.
   {
     id: 'lyft',
     name: 'Lyft',

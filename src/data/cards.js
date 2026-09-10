@@ -76,7 +76,12 @@ export const CARDS = [
       '10% anniversary points bonus on the prior year of spend — modelled here as +0.1x on every category. Chase is ending this benefit on 1 October 2026, after which these rates drop back to the base numbers automatically.',
     earn: {
       travel_portal_chase: 5,
-      rideshare: 5,
+      // 2x is the card's "travel worldwide" rate, which is what covers taxis and
+      // rideshare. The headline 5x is Lyft only — a Chase partnership, not a
+      // category rate — so modelling it as `rideshare: 5` handed every Uber ride
+      // to this card at 5.1x. Lyft's own 5x is not modelled at the moment; see
+      // the note in data/merchants.js.
+      rideshare: 2,
       dining: 3,
       gas: 3,
       streaming: 3,
