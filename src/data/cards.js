@@ -146,7 +146,12 @@ export const CARDS = [
       { id: 'csr_dining_h2', label: 'Exclusive Tables dining — Jul–Dec', value: 150, period: 'semiannual', half: 2, note: 'Through OpenTable Sapphire Exclusive Tables.' },
       { id: 'csr_stubhub_h1', label: 'StubHub / viagogo — Jan–Jun', value: 150, period: 'semiannual', half: 1 },
       { id: 'csr_stubhub_h2', label: 'StubHub / viagogo — Jul–Dec', value: 150, period: 'semiannual', half: 2 },
-      { id: 'csr_doordash', label: 'DoorDash promos', value: 25, period: 'monthly', merchant: 'doordash', note: '$5 restaurant plus two $10 non-restaurant credits each month.' },
+      // Three separate monthly promos, not one $25 pot: each posts against its
+      // own order, and the $10 pair only applies to non-restaurant orders
+      // (grocery, convenience, retail). Separate rows so each ticks off alone.
+      { id: 'csr_doordash_restaurant', label: 'DoorDash restaurant promo', value: 5, period: 'monthly', merchant: 'doordash', note: 'One restaurant order per month. Requires DashPass.' },
+      { id: 'csr_doordash_nonrest_1', label: 'DoorDash non-restaurant promo — 1st', value: 10, period: 'monthly', merchant: 'doordash', note: 'Grocery, convenience or retail order. Requires DashPass.' },
+      { id: 'csr_doordash_nonrest_2', label: 'DoorDash non-restaurant promo — 2nd', value: 10, period: 'monthly', merchant: 'doordash', note: 'Grocery, convenience or retail order. Requires DashPass.' },
       { id: 'csr_lyft', label: 'Lyft credit', value: 10, period: 'monthly', merchant: 'lyft', note: 'In-app credit. Runs through 9/30/27.' },
       { id: 'csr_peloton', label: 'Peloton credit', value: 10, period: 'monthly', note: 'Through 12/31/27.' },
       { id: 'csr_dashpass', label: 'DashPass membership', value: 120, period: 'annual', note: 'Complimentary for 12 months; activate by 12/31/27.' },

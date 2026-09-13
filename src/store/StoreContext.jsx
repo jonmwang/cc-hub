@@ -102,6 +102,52 @@ function backfillMerchantRules(saved, defaults) {
   })
 }
 
+// Credits that were one catalogue row and are now several. Anything recorded
+// against the old id — a tick, a log entry, a personal value — is carried onto
+// the new rows, so a month already marked used stays used instead of silently
+// reappearing as three unclaimed credits.
+const SPLIT_CREDITS = {
+  csr_doordash: [
+    { id: 'csr_doordash_restaurant', share: 5 / 25 },
+    { id: 'csr_doordash_nonrest_1', share: 10 / 25 },
+    { id: 'csr_doordash_nonrest_2', share: 10 / 25 },
+  ],
+}
+
+function splitCreditRecords(saved) {
+  const creditsUsed = {}
+  for (const [walletKey, credits] of Object.entries(saved.creditsUsed ?? {})) {
+    creditsUsed[walletKey] = {}
+    for (const [creditId, rec] of Object.entries(credits)) {
+      const parts = SPLIT_CREDITS[creditId]
+      if (!parts) creditsUsed[walletKey][creditId] = rec
+      else for (const part of parts) creditsUsed[walletKey][part.id] ??= rec
+    }
+  }
+
+  const creditValues = {}
+  for (const [walletKey, values] of Object.entries(saved.creditValues ?? {})) {
+    creditValues[walletKey] = {}
+    for (const [creditId, value] of Object.entries(values)) {
+      const parts = SPLIT_CREDITS[creditId]
+      if (!parts) creditValues[walletKey][creditId] = value
+      else for (const part of parts) creditValues[walletKey][part.id] ??= Math.round(value * part.share)
+    }
+  }
+
+  const creditsLog = (saved.creditsLog ?? []).flatMap((e) => {
+    const parts = SPLIT_CREDITS[e?.creditId]
+    if (!parts) return [e]
+    return parts.map((part) => ({
+      ...e,
+      creditId: part.id,
+      value: typeof e.value === 'number' ? Math.round(e.value * part.share) : e.value,
+    }))
+  })
+
+  return { creditsUsed, creditValues, creditsLog }
+}
+
 // Old saves keep working when the catalog gains fields.
 function migrate(saved) {
   const base = defaultState()
@@ -115,9 +161,7 @@ function migrate(saved) {
     settings: { ...base.settings, ...(saved.settings ?? {}) },
     rotating: saved.rotating ?? {},
     merchantRules: backfillMerchantRules(saved.merchantRules, base.merchantRules),
-    creditValues: saved.creditValues ?? {},
-    creditsUsed: saved.creditsUsed ?? {},
-    creditsLog: saved.creditsLog ?? [],
+    ...splitCreditRecords(saved),
   }
 }
 
