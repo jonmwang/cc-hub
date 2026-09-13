@@ -26,6 +26,18 @@ const stableJson = (value) =>
       : val,
   )
 
+// The part of an answer sheet that carries meaning. The header comment includes a
+// generation timestamp, so the raw text differs on every build even when not one
+// answer has changed — comparing whole files would rewrite all three sheets on
+// every save.
+const sheetBody = (tsv) =>
+  String(tsv)
+    .split('\n')
+    .filter((line) => !line.startsWith('#'))
+    .join('\n')
+
+const decodeBase64Utf8 = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
+
 export class FirestoreAdapter {
   constructor({ householdId, keyString, onLocalMerge, buildAnswers }) {
     this.householdId = householdId
@@ -41,6 +53,9 @@ export class FirestoreAdapter {
     // Serialisation of the last payload actually sent. The write loop guard —
     // see flush().
     this.lastSentJson = null
+    // Body of each answer sheet as the server holds it, by document path. Filled
+    // lazily on first publish — see publishSheet().
+    this.publishedBodies = new Map()
     this.pendingTimer = null
     this.pendingState = null
 
@@ -110,6 +125,12 @@ export class FirestoreAdapter {
     const json = stableJson(state)
     if (json === this.lastSentJson) {
       this.status = 'synced'
+      // Still offer the sheets. The state can be unchanged while the *generator*
+      // has changed — a deploy that rewords an answer is exactly that — and with
+      // the guard above, merely opening the app no longer writes anything, so
+      // this is the only path by which a new release reaches the sheet.
+      // publishSheet() writes nothing unless an answer actually differs.
+      await this.publishAnswers(state)
       return
     }
 
@@ -149,7 +170,14 @@ export class FirestoreAdapter {
    * with sed and decode it with the stock base64 tool, without tripping over
    * escaped newlines and tabs.
    */
-  async publishAnswers(state) {
+  // One publish at a time. A slow network can let two debounced flushes overlap,
+  // and two interleaved publishes would both see "not yet published" and write.
+  publishAnswers(state) {
+    this.publishQueue = (this.publishQueue ?? Promise.resolve()).then(() => this.publishAnswersNow(state))
+    return this.publishQueue
+  }
+
+  async publishAnswersNow(state) {
     if (!this.buildAnswers) return
     try {
       const encode = (tsv) => {
@@ -164,7 +192,7 @@ export class FirestoreAdapter {
       // The household sheet: whatever the site's own person selector is set to.
       const tsv = this.buildAnswers(state)
       if (!tsv) return
-      await setDoc(this.answersRef, { b64: encode(tsv), updatedAt: Date.now(), v: 1 })
+      await this.publishSheet(this.answersRef, tsv, encode)
 
       // Plus one sheet per person, scoped to only the cards they actually hold.
       //
@@ -176,11 +204,7 @@ export class FirestoreAdapter {
       for (const person of state.people ?? []) {
         const personTsv = this.buildAnswers(state, { ownerFilter: person.id })
         if (!personTsv) continue
-        await setDoc(doc(this.db, 'answers', `${this.householdId}_${person.id}`), {
-          b64: encode(personTsv),
-          updatedAt: Date.now(),
-          v: 1,
-        })
+        await this.publishSheet(doc(this.db, 'answers', `${this.householdId}_${person.id}`), personTsv, encode)
       }
     } catch (err) {
       // Never let the answer sheet take sync down with it — the encrypted
@@ -189,6 +213,33 @@ export class FirestoreAdapter {
       // than one that is visibly broken.
       this.answersError = err?.code || err?.message || 'unknown'
     }
+  }
+
+  // Write one answer sheet, but only if an answer on it changed.
+  //
+  // Most saves change nothing a reader would hear: dragging a valuation, ticking
+  // a credit whose card doesn't top any list. Rewriting all three sheets on each
+  // one made every save cost four writes instead of one.
+  //
+  // The first time a sheet is published this session, read what the server
+  // already has. That is what makes simply opening the app free, while a release
+  // that changed the generator still gets published on first open. Three reads
+  // per session, against a daily budget of 50,000.
+  async publishSheet(ref, tsv, encode) {
+    if (!tsv) return
+    const body = sheetBody(tsv)
+    if (!this.publishedBodies.has(ref.path)) {
+      try {
+        const snap = await getDoc(ref)
+        const b64 = snap.exists() ? snap.data()?.b64 : null
+        this.publishedBodies.set(ref.path, b64 ? sheetBody(decodeBase64Utf8(b64)) : null)
+      } catch {
+        this.publishedBodies.set(ref.path, null)
+      }
+    }
+    if (this.publishedBodies.get(ref.path) === body) return
+    await setDoc(ref, { b64: encode(tsv), updatedAt: Date.now(), v: 1 })
+    this.publishedBodies.set(ref.path, body)
   }
 
   subscribe(onChange) {
@@ -203,7 +254,22 @@ export class FirestoreAdapter {
           const remote = await decryptJson(this.key, snap.data())
           if (!remote || cancelled) return
           this.status = 'synced'
+          // Another device changed the household, and it will usually have
+          // republished the sheets too. Forget what we believed the server holds
+          // so publishSheet() re-reads before deciding — otherwise every open
+          // device rewrites all three sheets after every answer-changing edit,
+          // from a cache that went stale the moment the other device wrote.
+          // Three reads instead of three redundant writes. (Our own writes never
+          // reach here: they arrive with hasPendingWrites and return above.)
+          this.publishedBodies.clear()
           const merged = this.onLocalMerge ? this.onLocalMerge(remote) : remote
+          // If merging contributed nothing of ours, the server already holds
+          // exactly this state, so there is nothing to send back. Without this,
+          // every change made on one device was written a second time by each
+          // other open device the moment it arrived — half of all sync writes in
+          // a two-person household, for no information at all.
+          const remoteJson = stableJson(remote)
+          if (stableJson(merged) === remoteJson) this.lastSentJson = remoteJson
           this.lastSeen = merged
           onChange(merged)
         } catch {
