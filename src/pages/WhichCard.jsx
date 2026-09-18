@@ -4,7 +4,7 @@ import { useStore } from '../store/StoreContext'
 import { CATEGORIES, CATEGORY_BY_ID, CATEGORY_GROUPS } from '../data/categories'
 import { CARD_BY_ID } from '../data/cards'
 import { CURRENCIES, CURRENCY_LIST } from '../data/currencies'
-import { activeRotatingCategories, formatMultiplier, formatValue, rankCardsForCategory } from '../lib/ranking'
+import { activeRotatingCategories, formatMultiplier, formatValue, rankCardsForCategory, rotatingSource } from '../lib/ranking'
 import { currentQuarterLabel } from '../lib/periods'
 import CardArt from '../components/CardArt'
 import { OwnerChip, Panel, Segmented, Switch, cardTitle } from '../components/ui'
@@ -23,6 +23,8 @@ const ROTATING_CHOICES = [
   'entertainment',
   'travel_other',
   'phone',
+  'utilities',
+  'red_cross',
 ]
 
 export default function WhichCard() {
@@ -36,6 +38,11 @@ export default function WhichCard() {
   const category = CATEGORY_BY_ID[categoryId]
 
   const rotatingEntries = state.wallet.filter((w) => CARD_BY_ID[w.cardId]?.rotating)
+
+  // Seasonal categories (Red Cross) only earn anything in a quarter where some
+  // rotating card has them, so only offer them then.
+  const activeSeasonal = new Set(rotatingEntries.flatMap((w) => activeRotatingCategories(state, w.key)))
+  const pickable = CATEGORIES.filter((c) => !c.seasonal || activeSeasonal.has(c.id))
 
   return (
     <div className="page page-wide">
@@ -130,7 +137,8 @@ export default function WhichCard() {
               )}
               {rotatingEntries.map((w) => {
                 const card = CARD_BY_ID[w.cardId]
-                const selected = activeRotatingCategories(state, w.key)
+                const source = rotatingSource(state, w.key)
+                const selected = source.categories
                 return (
                   <div key={w.key}>
                     <div className="rot-card-name">
@@ -138,6 +146,15 @@ export default function WhichCard() {
                       {card.name}
                     </div>
                     <p className="rot-hint">{card.rotatingNote}</p>
+                    {source.from === 'announced' && (
+                      <p className="rot-hint">
+                        Filled in from the{' '}
+                        <a href={source.announced.source} target="_blank" rel="noreferrer">
+                          official announcement
+                        </a>
+                        . Tap to override.
+                      </p>
+                    )}
                     <div className="rot-options">
                       {ROTATING_CHOICES.map((cid) => {
                         const on = selected.includes(cid)
@@ -164,7 +181,8 @@ export default function WhichCard() {
               <div className="rot-locked-note">
                 Only rotating-category cards can be edited here. Every other card uses its published,
                 fixed earn rates so nothing incorrect can creep in. Picks are stamped with the quarter
-                and clear themselves when a new one starts.
+                and clear themselves when a new one starts — at which point the issuer's announced
+                categories take over, if they've been published.
               </div>
             </div>
           </Panel>
@@ -179,7 +197,7 @@ export default function WhichCard() {
                 <div key={group}>
                   <div className="cat-group-label">{group}</div>
                   <div className="cat-buttons">
-                    {CATEGORIES.filter((c) => c.group === group).map((c) => (
+                    {pickable.filter((c) => c.group === group).map((c) => (
                       <button
                         key={c.id}
                         className="cat-btn"

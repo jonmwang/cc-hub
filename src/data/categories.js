@@ -24,12 +24,17 @@ export const CATEGORIES = [
   { id: 'wholesale', label: 'Costco & warehouse clubs', hint: 'Costco, Sam’s Club, BJ’s', group: 'Everyday', icon: '🏬' },
   { id: 'gas', label: 'Gas stations', hint: 'Fuel, EV charging at stations', group: 'Everyday', icon: '⛽' },
   { id: 'drugstores', label: 'Drugstores', hint: 'CVS, Walgreens, Rite Aid', group: 'Everyday', icon: '💊' },
+  { id: 'utilities', label: 'Utilities', hint: 'Electric, gas, water, internet, cable', group: 'Everyday', icon: '💡' },
 
   // --- Lifestyle ---
   { id: 'streaming', label: 'Streaming services', hint: 'Netflix, Spotify, Hulu, Disney+', group: 'Lifestyle', icon: '📺' },
   { id: 'entertainment', label: 'Entertainment & movies', hint: 'Cinemas, concerts, live events, ticketing', group: 'Lifestyle', icon: '🎬' },
   { id: 'online_retail', label: 'Online shopping', hint: 'Amazon and general online retail', group: 'Lifestyle', icon: '🛍️' },
   { id: 'phone', label: 'Phone plan', hint: 'Cell service billed by the carrier', group: 'Lifestyle', icon: '📱' },
+  // Only ever a rotating bonus, and a narrow one: Chase's Q4 2026 category is
+  // American Red Cross specifically, not charity in general. `seasonal` keeps it
+  // out of the picker except in a quarter where some card actually pays on it.
+  { id: 'red_cross', label: 'American Red Cross', hint: 'Donations to the American Red Cross', group: 'Lifestyle', icon: '❤️', seasonal: true },
 
   // --- Catch-all ---
   { id: 'everything_else', label: 'Everything else', hint: 'Anything with no bonus category', group: 'Catch-all', icon: '💳' },

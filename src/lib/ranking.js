@@ -1,15 +1,27 @@
 import { CARD_BY_ID } from '../data/cards'
 import { CURRENCIES } from '../data/currencies'
 import { currentQuarterKey } from './periods'
+import { announcedRotation } from '../data/rotatingCalendar'
 
 // Rotating picks only count for the quarter they were entered in — an
-// un-refreshed quarter silently falls back to the card's standing rates rather
-// than quietly recommending last quarter's categories.
-export function activeRotatingCategories(state, key) {
+// un-refreshed quarter never quietly recommends last quarter's categories.
+//
+// Precedence: a hand pick made this quarter, then the issuer's announcement
+// from the calendar, then nothing (standing rates only).
+export function activeRotatingCategories(state, key, now = new Date()) {
+  return rotatingSource(state, key, now).categories
+}
+
+export function rotatingSource(state, key, now = new Date()) {
+  const quarter = currentQuarterKey(now)
   const entry = state.rotating[key]
-  if (!entry) return []
-  if (entry.quarterKey !== currentQuarterKey()) return []
-  return entry.categories ?? []
+  if (entry && entry.quarterKey === quarter) return { categories: entry.categories ?? [], from: 'manual' }
+
+  const cardId = state.wallet.find((w) => w.key === key)?.cardId
+  const announced = cardId ? announcedRotation(cardId, quarter) : null
+  if (announced) return { categories: announced.categories, from: 'announced', announced }
+
+  return { categories: [], from: 'none' }
 }
 
 export function effectiveMultiplier(state, walletEntry, categoryId) {
