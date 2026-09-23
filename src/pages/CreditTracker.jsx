@@ -60,11 +60,8 @@ export default function CreditTracker() {
           per half-year, or on the card's anniversary — so nothing needs clearing by hand.
         </p>
         <p className="hint" style={{ maxWidth: '68ch' }}>
-          Every credit shows a <strong>use by</strong> date that sits a few days before the window
-          actually shuts — 3 days for monthly credits, 5 for quarterly, 7 for longer ones. Spending on
-          the true last day often fails to post in time (Amex's monthly dining credit is the usual
-          culprit), so that date is the one worth treating as the deadline. <strong>Expiring soon</strong>{' '}
-          counts anything already past its use-by date or close to it.
+          The <strong>use by</strong> date sits a few days before the window really shuts, because
+          spending on the last day often fails to post in time. Treat it as the deadline.
         </p>
       </div>
 

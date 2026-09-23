@@ -43,6 +43,8 @@ export default function FeeCalculator() {
     return { face, personal, effective: card.annualFee - personal }
   }, [card, entry, state.creditValues, excludedForCard])
 
+  const roundedEffective = Math.round(totals.effective)
+
   if (!entry || !card) {
     return (
       <div className="page">
@@ -137,16 +139,26 @@ export default function FeeCalculator() {
             <div className="fee-cell highlight">
               <div className="fee-cell-label">Effective fee</div>
               <motion.div
-                key={Math.round(totals.effective)}
+                key={roundedEffective}
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.22 }}
-                className={`fee-cell-value ${totals.effective <= 0 ? 'value-positive' : ''}`}
+                className={`fee-cell-value ${roundedEffective <= 0 ? 'value-positive' : ''}`}
               >
-                {totals.effective <= 0 ? `+${money(-totals.effective)}` : money(totals.effective)}
+                {/* Exactly zero is its own case. Treating it as "ahead" printed
+                    "+$-0" on every no-fee card, because Math.round(-0) is -0. */}
+                {roundedEffective < 0
+                  ? `+${money(-roundedEffective)}`
+                  : money(Math.abs(roundedEffective))}
               </motion.div>
               <div className="fee-cell-note">
-                {totals.effective <= 0 ? 'Net positive before any points earned' : 'Out of pocket per year'}
+                {roundedEffective < 0
+                  ? 'Net positive before any points earned'
+                  : roundedEffective === 0
+                    ? card.annualFee === 0
+                      ? 'No annual fee'
+                      : 'Credits cover the fee exactly'
+                    : 'Out of pocket per year'}
               </div>
             </div>
           </div>

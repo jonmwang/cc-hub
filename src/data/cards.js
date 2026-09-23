@@ -33,7 +33,6 @@ export const CARDS = [
     },
     credits: [],
     notes: [
-      'Largely redundant next to your other Chase cards, but it is free to keep and helps average age of accounts.',
       'Its points only become transferable while you also hold a Sapphire card.',
     ],
   },
@@ -55,7 +54,7 @@ export const CARDS = [
     },
     credits: [],
     notes: [
-      'The quarterly bonus stacks on top of the standing rate rather than replacing it. On a plain category that is the advertised 5%, but on dining or drugstores — already 3x — a quarterly pick makes it 7x.',
+      'The quarterly bonus stacks on top of the standing rate: 5x on a plain category, 7x on dining or drugstores.',
       'Has a 3% foreign transaction fee — leave it home when travelling abroad.',
       'Points only become transferable while you also hold a Sapphire card.',
     ],
@@ -73,7 +72,7 @@ export const CARDS = [
     // reverts to the plain published number instead of overstating it.
     anniversaryBonusEndsOn: '2026-10-01',
     anniversaryBonusNote:
-      '10% anniversary points bonus on the prior year of spend — modelled here as +0.1x on every category. Chase is ending this benefit on 1 October 2026, after which these rates drop back to the base numbers automatically.',
+      '10% anniversary bonus on the prior year of spend, shown here as +0.1x on every rate. Ends 1 October 2026, after which these rates correct themselves.',
     earn: {
       travel_portal_chase: 5,
       // 2x is the card's "travel worldwide" rate, which is what covers taxis and
@@ -117,8 +116,7 @@ export const CARDS = [
       { id: 'csp_globalentry', label: 'Global Entry / TSA PreCheck', value: 120, period: 'every4years' },
     ],
     notes: [
-      'Counts public transit as travel, which most cards do not.',
-      '5x on Lyft runs through 9/30/2027; 3x gas and EV charging are newer additions.',
+      '5x on Lyft runs through 9/30/2027.',
     ],
   },
   {
@@ -159,9 +157,7 @@ export const CARDS = [
       { id: 'csr_globalentry', label: 'Global Entry / TSA PreCheck', value: 120, period: 'every4years' },
     ],
     notes: [
-      'The headline fee is large; the Fee Calculator page is where you decide how much of it you actually claw back.',
-      'The dining and StubHub credits are semiannual — they expire twice a year, not once.',
-      'Spending $75k in a year unlocks Hyatt Explorist, IHG Diamond, and several more credits not modelled here.',
+      'The dining and StubHub credits expire twice a year, not once.',
       'Authorised users are $195 each.',
     ],
   },
@@ -193,7 +189,7 @@ export const CARDS = [
       'The 4x grocery rate is US supermarkets only — warehouse clubs and superstores are excluded.',
       'Dining is capped at $50k/yr and groceries at $25k/yr; past the cap both drop to 1x.',
       '5x applies to prepaid hotels booked on Amex Travel; flights there earn 3x.',
-      'Also carries a $100 Hotel Collection credit, which needs 2+ consecutive nights. Per-booking rather than recurring, so it is not tracked here.',
+      'Its $100 Hotel Collection credit is per booking rather than recurring, so it is not tracked here. Needs 2+ consecutive nights.',
     ],
   },
   {
@@ -225,12 +221,9 @@ export const CARDS = [
       { id: 'plat_clear', label: 'CLEAR Plus membership', value: 219, period: 'annual' },
       { id: 'plat_oura', label: 'Oura Ring credit', value: 200, period: 'annual', note: 'Purchased at ouraring.com.' },
       { id: 'plat_uberone', label: 'Uber One membership', value: 120, period: 'annual' },
-      { id: 'plat_saks_h1', label: 'Saks credit — Jan–Jun', value: 50, period: 'semiannual', half: 1 },
-      { id: 'plat_saks_h2', label: 'Saks credit — Jul–Dec', value: 50, period: 'semiannual', half: 2 },
       { id: 'plat_globalentry', label: 'Global Entry / TSA PreCheck', value: 120, period: 'every4years' },
     ],
     notes: [
-      'Earns 1x on almost everything outside of airfare — it is a credits-and-lounges card, not a spending card.',
       'Nearly every credit requires enrolling in the benefit first; an unenrolled credit simply does not post.',
       'Credit amounts move around more than any other card here. Verify against your Amex account and edit as needed.',
     ],
@@ -254,7 +247,6 @@ export const CARDS = [
       { id: 'vx_globalentry', label: 'Global Entry / TSA PreCheck', value: 120, period: 'every4years' },
     ],
     notes: [
-      '2x on absolutely everything makes this the default catch-all card.',
       'Also earns 5x through Capital One Entertainment, which is a separate booking portal rather than general entertainment spend.',
       'Priority Pass plus Capital One Lounge access, including authorised users.',
       'Both the travel credit and the anniversary miles run on your card anniversary, not the calendar year.',
@@ -277,10 +269,9 @@ export const CARDS = [
     },
     credits: [],
     notes: [
-      'Earns cash back natively, but because you also hold the Venture X the rewards convert to Capital One Miles — so it is valued as a points card here.',
+      'Its cash back converts to Capital One Miles while you hold the Venture X, so it is valued as a points card here.',
       'Grocery rate excludes Walmart, Target, and warehouse clubs.',
       'Also earns 8% through Capital One Entertainment, a separate booking portal.',
-      'Grandfathered with no annual fee from the old SavorOne Student.',
     ],
   },
 
@@ -324,7 +315,7 @@ export const CARDS = [
       phone: 3,
     },
     credits: [],
-    notes: ['Broad 3x categories, but the rewards currency is weak compared to your transferable points.'],
+    notes: ['Broad 3x categories, but the currency is weaker than your transferable points.'],
   },
 ]
 

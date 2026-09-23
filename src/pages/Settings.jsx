@@ -53,8 +53,7 @@ export default function Settings() {
       <div className="page-head">
         <h1>Settings & sharing</h1>
         <p>
-          Everything lives in this browser. Nothing is uploaded anywhere, and no personal data is baked
-          into the code — which is what makes the site itself safe to share publicly.
+          Everything lives in this browser. Nothing is uploaded anywhere.
         </p>
       </div>
 

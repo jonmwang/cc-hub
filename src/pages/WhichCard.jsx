@@ -179,10 +179,8 @@ export default function WhichCard() {
                 )
               })}
               <div className="rot-locked-note">
-                Only rotating-category cards can be edited here. Every other card uses its published,
-                fixed earn rates so nothing incorrect can creep in. Picks are stamped with the quarter
-                and clear themselves when a new one starts — at which point the issuer's announced
-                categories take over, if they've been published.
+                Picks last for this quarter only. When it ends, the issuer's announced categories take
+                over.
               </div>
             </div>
           </Panel>
