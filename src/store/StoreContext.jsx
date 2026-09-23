@@ -347,13 +347,20 @@ export function StoreProvider({ children }) {
 
           if (currentlyUsed) {
             delete forCard[creditId]
-            // Un-ticking is a correction, so drop the matching log entry too —
-            // otherwise the running total would keep counting a credit you
-            // decided you never actually claimed.
+            // Un-ticking is a correction, so it must stop counting toward the
+            // running total. It is recorded as a tombstone rather than deleted,
+            // because the other device cannot tell a deletion apart from a
+            // claim it has not synced yet — and it used to resolve that by
+            // erasing the claim.
+            const removedAt = new Date().toISOString()
+            const existing = s.creditsLog.find(sameEntry)
             return {
               ...s,
               creditsUsed: { ...s.creditsUsed, [key]: forCard },
-              creditsLog: s.creditsLog.filter((e) => !sameEntry(e)),
+              creditsLog: [
+                ...s.creditsLog.filter((e) => !sameEntry(e)),
+                { key, creditId, periodKey, value, face, ...existing, removedAt },
+              ],
             }
           }
 
@@ -367,7 +374,9 @@ export function StoreProvider({ children }) {
               // Both figures are kept: `face` is what the issuer credited (and
               // what reconciles against a statement), `value` is what it was
               // worth to you.
-              { key, creditId, periodKey, usedAt, value, face },
+              // removedAt is cleared: re-ticking is a fresh claim, and leaving
+              // the tombstone would keep it out of every total.
+              { key, creditId, periodKey, usedAt, value, face, removedAt: null },
             ],
           }
         }),

@@ -1,6 +1,7 @@
 import { CARD_BY_ID } from '../data/cards'
 import { CREDIT_MERCHANT_BY_ID } from '../data/merchants'
 import { getPeriodInfo } from './periods'
+import { isLiveClaim } from './sync/merge'
 import { cppFor, effectiveMultiplier, rankCardsForCategory, visibleWallet } from './ranking'
 
 // Whether a credit has already been claimed in the window that is current now.
@@ -11,7 +12,7 @@ import { cppFor, effectiveMultiplier, rankCardsForCategory, visibleWallet } from
 export function isCreditUsed(state, walletKey, creditId, info) {
   if (info.status === 'closed') {
     return state.creditsLog.some(
-      (e) => e.key === walletKey && e.creditId === creditId && e.periodKey === info.key,
+      (e) => e.key === walletKey && e.creditId === creditId && e.periodKey === info.key && isLiveClaim(e),
     )
   }
   const rec = state.creditsUsed[walletKey]?.[creditId]

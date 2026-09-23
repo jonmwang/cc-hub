@@ -7,12 +7,21 @@
 //
 // So the usage log gets special treatment. It is append-only and each entry is
 // uniquely identified by (wallet key, credit id, period key), which makes it
-// safe to union rather than overwrite. Everything else is genuinely
-// last-write-wins, which is fine for settings and valuations: a conflict there
-// needs both people changing the same slider within a second of each other,
-// and the loss is a preference, not a record.
+// safe to union rather than overwrite. Un-ticking writes a tombstone
+// (`removedAt`) instead of deleting the entry, because a deletion and a claim
+// the other device simply hasn't seen yet are indistinguishable — and guessing
+// wrong means erasing a real claim.
+//
+// Everything else is genuinely last-write-wins, which is fine for settings and
+// valuations: a conflict there needs both people changing the same slider
+// within a second of each other, and the loss is a preference, not a record.
 
 const logId = (e) => `${e.key}|${e.creditId}|${e.periodKey}`
+
+// When the entry was last decided on — claimed, or un-claimed.
+const decidedAt = (e) => new Date(e.removedAt ?? e.usedAt).getTime()
+
+export const isLiveClaim = (e) => Boolean(e) && !e.removedAt
 
 /**
  * @param mine   the local state
@@ -25,37 +34,52 @@ export function mergeStates(mine, theirs, { preferTheirs = true } = {}) {
 
   const base = preferTheirs ? { ...mine, ...theirs } : { ...theirs, ...mine }
 
-  // Union the log by identity, keeping the earliest claim if both sides have
-  // the same one — that's the moment the credit was actually used.
   const byId = new Map()
   for (const entry of [...(mine.creditsLog ?? []), ...(theirs.creditsLog ?? [])]) {
     if (!entry?.key || !entry?.creditId) continue
     const id = logId(entry)
     const existing = byId.get(id)
-    if (!existing || new Date(entry.usedAt) < new Date(existing.usedAt)) byId.set(id, entry)
+    if (!existing) {
+      byId.set(id, entry)
+      continue
+    }
+    // A tombstone and a claim are a real disagreement: the most recent decision
+    // is the one that stands. Two plain claims are the same event recorded
+    // twice, so keep the earlier one — that's when the credit was really used.
+    if (existing.removedAt || entry.removedAt) {
+      if (decidedAt(entry) > decidedAt(existing)) byId.set(id, entry)
+    } else if (new Date(entry.usedAt) < new Date(existing.usedAt)) {
+      byId.set(id, entry)
+    }
   }
   const creditsLog = [...byId.values()].sort((a, b) => new Date(a.usedAt) - new Date(b.usedAt))
 
   // creditsUsed describes only the window that is current right now, and the
-  // log is the authority on what was claimed. Rebuild it from the union so a
-  // tick made on one device can't be erased by a stale copy from the other.
+  // log is the authority on what was claimed. Rebuilding it from the union is
+  // what stops a stale copy from erasing a tick made on the other device.
   const creditsUsed = {}
-  for (const [, e] of byId) {
+  for (const e of byId.values()) {
+    if (!isLiveClaim(e)) continue
     if (!creditsUsed[e.key]) creditsUsed[e.key] = {}
     creditsUsed[e.key][e.creditId] = { periodKey: e.periodKey, usedAt: e.usedAt }
   }
 
-  // A credit un-ticked locally has no log entry, so the rebuild above would
-  // resurrect it from the remote copy. Honour explicit local removals.
-  for (const [walletKey, credits] of Object.entries(mine.creditsUsed ?? {})) {
-    for (const creditId of Object.keys(creditsUsed[walletKey] ?? {})) {
-      const stillHeldLocally = credits[creditId]
-      const inLocalLog = (mine.creditsLog ?? []).some(
-        (e) => e.key === walletKey && e.creditId === creditId,
-      )
-      if (!stillHeldLocally && !inLocalLog) delete creditsUsed[walletKey][creditId]
-    }
-  }
+  return { ...base, creditsLog, creditsUsed, wallet: mergeWallet(mine, theirs, base) }
+}
 
-  return { ...base, creditsLog, creditsUsed }
+/**
+ * Wallet membership is last-write-wins (so removing a card actually removes it),
+ * but an open date is not: it is typed in once, on one device, and every other
+ * copy has null there. Plain last-write-wins let any save from a device that
+ * hadn't seen the date wipe it — and with it, every anniversary credit window
+ * on that card.
+ */
+function mergeWallet(mine, theirs, base) {
+  const dates = new Map()
+  for (const entry of [...(mine.wallet ?? []), ...(theirs.wallet ?? [])]) {
+    if (entry?.key && entry.openDate && !dates.has(entry.key)) dates.set(entry.key, entry.openDate)
+  }
+  return (base.wallet ?? []).map((entry) =>
+    entry.openDate ? entry : { ...entry, openDate: dates.get(entry.key) ?? entry.openDate },
+  )
 }

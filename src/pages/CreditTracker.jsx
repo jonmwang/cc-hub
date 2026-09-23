@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store/StoreContext'
 import { CARD_BY_ID } from '../data/cards'
+import { isLiveClaim } from '../lib/sync/merge'
 import { getPeriodInfo, urgencyFor } from '../lib/periods'
 import CardArt from '../components/CardArt'
 import { OwnerChip, Segmented, cardTitle, money } from '../components/ui'
@@ -42,6 +43,7 @@ export default function CreditTracker() {
     let redeemedFace = 0
     let redeemedWorth = 0
     for (const e of state.creditsLog) {
+      if (!isLiveClaim(e)) continue
       if (!ownerKeys.has(e.key)) continue
       if (new Date(e.usedAt).getTime() < yearStart) continue
       redeemedFace += e.face ?? e.value ?? 0
@@ -142,7 +144,9 @@ function isUsed(state, key, creditId, info) {
 // used-state has to be read from the log rather than from `creditsUsed`, which
 // only ever describes the window that is current right now.
 function wasUsedInClosedWindow(state, key, creditId, info) {
-  return state.creditsLog.some((e) => e.key === key && e.creditId === creditId && e.periodKey === info.key)
+  return state.creditsLog.some(
+    (e) => e.key === key && e.creditId === creditId && e.periodKey === info.key && isLiveClaim(e),
+  )
 }
 
 function TrackerCard({ entry, person, state, actions, now, hideDone }) {

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useStore } from '../store/StoreContext'
 import { CARD_BY_ID } from '../data/cards'
+import { isLiveClaim } from '../lib/sync/merge'
 import { currentQuarterLabel, getPeriodInfo, isExpiringSoon } from '../lib/periods'
 import CardArt from '../components/CardArt'
 import { money } from '../components/ui'
@@ -42,7 +43,7 @@ export default function Home() {
     // ahead", and it only counts credits you really ticked off.
     const yearStart = new Date(now.getFullYear(), 0, 1).getTime()
     const recovered = state.creditsLog
-      .filter((e) => new Date(e.usedAt).getTime() >= yearStart)
+      .filter((e) => isLiveClaim(e) && new Date(e.usedAt).getTime() >= yearStart)
       .reduce((sum, e) => sum + (e.value ?? 0), 0)
 
     return { fees, openNow, expiringSoon, recovered, net: recovered - fees, count: state.wallet.length }
