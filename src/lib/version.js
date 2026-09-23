@@ -16,7 +16,7 @@ export const BUILD_ID = typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev'
  * So the app checks for itself: fetch version.json (bypassing cache), compare
  * to the id compiled into this bundle, and if they differ, say so.
  *
- * Checks on mount, whenever the tab regains focus, and every 15 minutes.
+ * Checks on mount, on any return to the page, and every 5 minutes.
  */
 export function useUpdateAvailable() {
   const [available, setAvailable] = useState(false)
@@ -38,15 +38,26 @@ export function useUpdateAvailable() {
     }
 
     check()
+
+    // Three ways back into a stale page, and visibilitychange only covers one:
+    //  - switching browser tabs or un-minimising  -> visibilitychange
+    //  - switching apps, then clicking the window -> focus (macOS does not fire
+    //    visibilitychange when you alt-tab away from the browser entirely)
+    //  - hitting Back onto a bfcache'd copy       -> pageshow with persisted,
+    //    where the component never remounts, so the check on mount never runs
     const onFocus = () => {
       if (document.visibilityState === 'visible') check()
     }
     document.addEventListener('visibilitychange', onFocus)
-    const timer = setInterval(check, 15 * 60 * 1000)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('pageshow', onFocus)
+    const timer = setInterval(check, 5 * 60 * 1000)
 
     return () => {
       cancelled = true
       document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('pageshow', onFocus)
       clearInterval(timer)
     }
   }, [])

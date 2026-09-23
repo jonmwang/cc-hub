@@ -94,6 +94,11 @@ h4 {
 /* Update banner — shown when a newer deploy is detected. Sits above the
    header so it can't be missed, and is dismissed by reloading. */
 .update-bar {
+  /* Sticky, because the bar sits above the header at the top of the document:
+     scrolled down a long card list, a static one is announcing the update to
+     nobody. */
+  position: sticky;
+  top: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -104,7 +109,6 @@ h4 {
   color: #fff;
   font-size: 13.5px;
   font-weight: 600;
-  position: relative;
   z-index: 70;
 }
 .update-bar .btn {
