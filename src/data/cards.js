@@ -55,7 +55,6 @@ export const CARDS = [
     credits: [],
     notes: [
       'The quarterly bonus stacks on top of the standing rate: 5x on a plain category, 7x on dining or drugstores.',
-      'Has a 3% foreign transaction fee — leave it home when travelling abroad.',
       'Points only become transferable while you also hold a Sapphire card.',
     ],
   },
