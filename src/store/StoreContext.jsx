@@ -107,11 +107,17 @@ function backfillMerchantRules(saved, defaults) {
 // the new rows, so a month already marked used stays used instead of silently
 // reappearing as three unclaimed credits.
 const SPLIT_CREDITS = {
+  // Historical shares: a $25 claim logged before the split really was 5/10/10,
+  // so that is how it stays recorded.
   csr_doordash: [
-    { id: 'csr_doordash_restaurant', share: 5 / 25 },
+    { id: 'csr_doordash_any', share: 5 / 25, resetValue: true },
     { id: 'csr_doordash_nonrest_1', share: 10 / 25 },
     { id: 'csr_doordash_nonrest_2', share: 10 / 25 },
   ],
+  // A single part is a plain rename. `resetValue` drops any personal valuation
+  // along with it, because the face value changed underneath it ($5 -> $15) and
+  // a number entered against the old amount would quietly understate the card.
+  csr_doordash_restaurant: [{ id: 'csr_doordash_any', share: 1, resetValue: true }],
 }
 
 function splitCreditRecords(saved) {
@@ -131,7 +137,11 @@ function splitCreditRecords(saved) {
     for (const [creditId, value] of Object.entries(values)) {
       const parts = SPLIT_CREDITS[creditId]
       if (!parts) creditValues[walletKey][creditId] = value
-      else for (const part of parts) creditValues[walletKey][part.id] ??= Math.round(value * part.share)
+      else
+        for (const part of parts) {
+          if (part.resetValue) continue
+          creditValues[walletKey][part.id] ??= Math.round(value * part.share)
+        }
     }
   }
 

@@ -2,7 +2,7 @@
 //
 // The usual advice ("use whatever earns most") is wrong at these places. A
 // DoorDash order on the Amex Gold earns 4x against the Sapphire Reserve's 3x,
-// a gap worth about 1.75¢ per dollar. But the Reserve carries $25 of DoorDash
+// a gap worth about 1.75¢ per dollar. But the Reserve carries $35 of DoorDash
 // credit each month that can ONLY be captured by paying with that card. On any
 // realistic order the credit dwarfs the earn difference — see crossoverSpend in
 // lib/credits.js for where that actually flips.

@@ -146,7 +146,8 @@ export const CARDS = [
       // Three separate monthly promos, not one $25 pot: each posts against its
       // own order, and the $10 pair only applies to non-restaurant orders
       // (grocery, convenience, retail). Separate rows so each ticks off alone.
-      { id: 'csr_doordash_restaurant', label: 'DoorDash restaurant promo', value: 5, period: 'monthly', merchant: 'doordash', note: 'One restaurant order per month. Requires DashPass.' },
+      // From 1 Oct 2026 this went $5 -> $15 and stopped being restaurant-only.
+      { id: 'csr_doordash_any', label: 'DoorDash credit', value: 15, period: 'monthly', merchant: 'doordash', note: 'Any DoorDash order, restaurants included. Requires DashPass.' },
       { id: 'csr_doordash_nonrest_1', label: 'DoorDash non-restaurant promo — 1st', value: 10, period: 'monthly', merchant: 'doordash', note: 'Grocery, convenience or retail order. Requires DashPass.' },
       { id: 'csr_doordash_nonrest_2', label: 'DoorDash non-restaurant promo — 2nd', value: 10, period: 'monthly', merchant: 'doordash', note: 'Grocery, convenience or retail order. Requires DashPass.' },
       { id: 'csr_lyft', label: 'Lyft credit', value: 10, period: 'monthly', merchant: 'lyft', note: 'In-app credit. Runs through 9/30/27.' },
